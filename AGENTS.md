@@ -72,6 +72,22 @@ Antigravity IDE **không dùng slash commands** (`/spec`, `/plan`). Thay vào đ
 
 ---
 
+## ⚡ Slash Commands (Lối tắt nhanh cho anh Trung)
+
+Mặc dù IDE không hỗ trợ slash commands gốc, nhưng Agent được yêu cầu hỗ trợ các lệnh sau bằng cách đọc trực tiếp file đặc tả trong `.agent/workflows/agent-skills-main/.claude/commands/`:
+
+| Lệnh | Ý nghĩa | File thực thi (trong .agent/.../.claude/commands/) |
+|---|---|---|
+| `/debug` | Phân tích và sửa bug chuyên sâu | `debug.md` (nếu có) |
+| `/ship` | Đóng gói, deploy Vercel và push GitHub | `ship.md` |
+| `/status` | Kiểm tra tình trạng hiện tại của dự án | `status.md` (nếu có) |
+| `/spec` | Tạo tài liệu thiết kế tính năng mới | `spec.md` |
+| `/test` | Chạy quy trình kiểm thử | `test.md` |
+| `/review` | Review lại chất lượng mã nguồn | `review.md` |
+| `/plan` | Lập kế hoạch thực hiện task | `plan.md` |
+
+---
+
 ## 🔄 Vòng Đời Phát Triển Chuẩn (Áp dụng cho Dự Án này)
 
 ```
