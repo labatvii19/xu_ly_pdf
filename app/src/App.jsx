@@ -245,7 +245,7 @@ export default function App() {
       }
     }
     // Không có dragRef → không preventDefault, scroll tự hoạt động
-  }, [drawOverlay]);
+  }, [drawOverlay, setRenderId]);
 
   const handleUp = useCallback((e) => {
     if (!e.touches || e.touches.length < 2) {
@@ -288,7 +288,7 @@ export default function App() {
       saveHistory();
     }
     dragRef.current = null;
-  }, [saveHistory]);
+  }, [saveHistory, drawOverlay]);
 
   // Safari Gesture API (iPad/iPhone specific - extremely smooth)
   const handleGestureStart = useCallback((e) => {
@@ -333,14 +333,15 @@ export default function App() {
   }, [handleDown, handleMove, handleUp, handleGestureStart, handleGestureChange]);
 
   // ── PDF rendering ──
+  // ── PDF rendering ──
   const renderPage = useCallback(async (pNum) => {
     if (!pdfDoc || !bgCanvasRef.current) return;
-    const page     = await pdfDoc.getPage(pNum);
-    // Increase base render scale from 1.5 to 2.5 for crisp Retina mapping
-    const viewport = await renderPageToCanvas(page, bgCanvasRef.current, 2.5);
-    vpRef.current  = { w: viewport.width, h: viewport.height };
+    const page      = await pdfDoc.getPage(pNum);
+    const baseVp    = page.getViewport({ scale: 1.0 });
+    const renderVp  = await renderPageToCanvas(page, bgCanvasRef.current, 2.5);
+    vpRef.current   = { w: baseVp.width, h: baseVp.height };
     const oc = ovCanvasRef.current;
-    if (oc) { oc.width = viewport.width; oc.height = viewport.height; }
+    if (oc) { oc.width = renderVp.width; oc.height = renderVp.height; }
     layersRef.current = [...(pageStore.current[pNum - 1] || [])];
     marqueeRef.current = null;
     setSelectedId(null);
@@ -351,7 +352,7 @@ export default function App() {
     historyIndexRef.current = 0;
     setHistoryStamp(Date.now());
     setRenderId(v => v + 1);
-  }, [pdfDoc, saveHistory]);
+  }, [pdfDoc]);
 
   useEffect(() => { renderPage(pageNum); }, [pageNum, renderPage]);
 
@@ -644,9 +645,8 @@ export default function App() {
               style={{
                 position:'absolute', top:0, left:0, width:'100%', height:'100%',
                 cursor: mode==='marquee' ? 'crosshair' : 'default',
-                // LUON la 'none' de dam bao pinch-zoom hoat dong tren iOS Safari
-                // Scroll doc trang se hoat dong qua container ben ngoai
-                touchAction: 'none',
+                // Chế độ Pan khi không chọn layer thì cho phép scroll trang tự nhiên
+                touchAction: (mode === 'pan' && !selectedId) ? 'pan-x pan-y' : 'none',
               }}
             />
 
