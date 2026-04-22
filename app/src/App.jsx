@@ -74,15 +74,20 @@ export default function App() {
   // ── Redraw overlay canvas (marquee box) ──
   const drawOverlay = useCallback(() => {
     const oc = ovCanvasRef.current;
-    if (!oc) return;
+    if (!oc || !vpRef.current.w) return;
     const ctx = oc.getContext('2d');
-    ctx.clearRect(0, 0, oc.width, oc.height);
+    
+    // Đồng bộ hệ tọa độ vẽ (Canvas 2.5x) với hệ tọa độ PDF (1.0x)
+    const scale = oc.width / vpRef.current.w;
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    
+    ctx.clearRect(0, 0, vpRef.current.w, vpRef.current.h);
     const m = marqueeRef.current;
     if (m && m.w > 0 && m.h > 0) {
       ctx.fillStyle   = 'rgba(0, 122, 255, 0.1)';
       ctx.strokeStyle = '#007AFF';
-      ctx.lineWidth   = 2.5;
-      ctx.setLineDash([7, 4]);
+      ctx.lineWidth   = 2.5 / scale; // Giữ độ dày viền không đổi khi zoom
+      ctx.setLineDash([7 / scale, 4 / scale]);
       ctx.beginPath();
       ctx.rect(m.x, m.y, m.w, m.h);
       ctx.fill();
@@ -619,9 +624,9 @@ export default function App() {
             // Using a flex wrapper instead allows safe scrolling. But we also just use display block with margin auto.
             display: 'block', 
             margin: '12px auto',
-            width: `${vpRef.current.w * zoom}px`,
-            height: `${vpRef.current.h * zoom}px`,
-            maxWidth: 'max-content'
+            width: `${Math.floor(vpRef.current.w * zoom)}px`,
+            height: `${Math.floor(vpRef.current.h * zoom)}px`,
+            maxWidth: 'none'
           }}>
             {/* PDF base render */}
             <canvas ref={bgCanvasRef} style={{ display:'block', width:'100%', height:'100%' }}/>
