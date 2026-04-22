@@ -1,7 +1,23 @@
 # AGENTS.md — PDF Patcher (xu_ly_pdf)
 > Dành cho Antigravity IDE · Phiên bản 1.0 · Cập nhật: 2026-04-22
 
-Hướng dẫn vận hành AI Agent trong dự án **PDF Patcher** — ứng dụng Web chỉnh sửa PDF trên thiết bị di động, triển khai trên Vercel.
+Hướng dẫn vận hành AI Agent trong dự án **PDF Toolkit** — bộ công cụ xử lý PDF trên web, hoạt động trên cả mobile (iOS/Android) và PC Desktop.
+
+---
+
+## 🔒 NGUYÊN TẮC SỐ 1 — ĐỌC 01_Inputs TRƯỚC MỌI QUYẾT ĐỊNH
+
+Trước khi thực hiện bất kỳ task nào (code, design, planning), Agent PHẢI đọc:
+
+| File | Mục đích |
+|---|---|
+| `01_Inputs/prd/pdf-toolkit-prd.md` | Scope, tính năng được phép, DoD từng phase |
+| `01_Inputs/architecture/system-architecture.md` | ADRs, stack, cấu trúc module không được vi phạm |
+| `01_Inputs/ux-blueprint/ux-blueprint.md` | Design system, layout pattern, anti-patterns UI |
+
+**Quy tắc:** Nếu yêu cầu của anh Trung mâu thuẫn với `01_Inputs/`, phải **báo cáo xung đột** trước khi làm — không tự ý làm theo yêu cầu và bỏ qua tài liệu gốc.
+
+**Để cập nhật `01_Inputs/`:** Chỉ khi anh Trung xác nhận thay đổi scope/architecture/UX → cập nhật file → ghi rõ lý do → commit với message `docs(inputs): ...`
 
 ---
 

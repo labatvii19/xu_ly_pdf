@@ -1,2 +1,9 @@
-01_Inputs/
 .agent/
+# 01_Inputs/ không bị ignore nữa — đây là tài liệu gốc cần track
+# 02_Process/ — vùng làm việc tạm, không cần track
+02_Process/
+# app build artifacts
+app/dist/
+app/node_modules/
+01_Inputs/git_token.txt
+01_Inputs/vercel token.txt
