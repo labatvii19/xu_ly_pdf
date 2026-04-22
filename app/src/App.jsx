@@ -23,13 +23,13 @@ function getPinchDist(e) {
   return null;
 }
 
-function toCanvasCoords(e, canvas) {
-  // getBoundingClientRect already accounts for CSS transform (zoom)
+function toPdfCoords(e, canvas, vp) {
   const r   = canvas.getBoundingClientRect();
   const { x: cx, y: cy } = getClientXY(e);
   return {
-    x: (cx - r.left) * (canvas.width  / r.width),
-    y: (cy - r.top)  * (canvas.height / r.height),
+    // Map CSS pixels directly to PDF points (base viewport size)
+    x: (cx - r.left) * (vp.w / r.width),
+    y: (cy - r.top)  * (vp.h / r.height),
   };
 }
 
@@ -140,7 +140,7 @@ export default function App() {
 
     if (curMode === 'marquee') {
       e.preventDefault();
-      const pos = toCanvasCoords(e, canvas);
+      const pos = toPdfCoords(e, canvas, vpRef.current);
       const m = marqueeRef.current;
       
       // Hit test existing marquee
@@ -156,7 +156,7 @@ export default function App() {
       setSelRect(null);
     } else {
       // Pan mode: check if hitting a layer
-      const pos = toCanvasCoords(e, canvas);
+      const pos = toPdfCoords(e, canvas, vpRef.current);
       const hit = [...layersRef.current].reverse().find(l =>
         l.type === 'image' &&
         !l.locked &&
@@ -171,8 +171,8 @@ export default function App() {
           id: hit.id,
           startCX: cx, startCY: cy,
           startLX: hit.x, startLY: hit.y,
-          scaleX: canvas.width  / r.width,
-          scaleY: canvas.height / r.height,
+          scaleX: vpRef.current.w / r.width,
+          scaleY: vpRef.current.h / r.height,
           hasMoved: false,
         };
         // don't select yet — only select when drag released without movement
@@ -200,7 +200,7 @@ export default function App() {
       e.preventDefault();
       const canvas = bgCanvasRef.current;
       if (!canvas) return;
-      const pos = toCanvasCoords(e, canvas);
+      const pos = toPdfCoords(e, canvas, vpRef.current);
       
       if (dragRef.current && dragRef.current.type === 'marquee') {
         const m = marqueeRef.current;
@@ -267,8 +267,8 @@ export default function App() {
         // Position context menu in FIXED viewport coords
         const canvas = bgCanvasRef.current;
         const r      = canvas.getBoundingClientRect();
-        const sx     = r.width  / canvas.width;
-        const sy     = r.height / canvas.height;
+        const sx     = r.width  / vpRef.current.w;
+        const sy     = r.height / vpRef.current.h;
         setContextMenu({
           x: r.left + (m.x + m.w / 2) * sx,
           y: r.top  + (m.y + m.h) * sy + 14,
@@ -390,25 +390,32 @@ export default function App() {
 
     // Tạo snapshot pixel data ĐỒNG BỘ ngay lập tức trước mọi thứ khác
     // Đảm bảo dù sau này canvas có bị re-render thì data cũng đã an toàn
-    const x0 = Math.max(0, Math.floor(selRect.x));
-    const y0 = Math.max(0, Math.floor(selRect.y));
-    const x1 = Math.min(srcCanvas.width,  Math.ceil(selRect.x + selRect.w));
-    const y1 = Math.min(srcCanvas.height, Math.ceil(selRect.y + selRect.h));
+    // Ánh xạ tọa độ 1.0x sang pixel thực tế của Canvas (scale 2.5)
+    const scaleFactorX = srcCanvas.width  / vpRef.current.w;
+    const scaleFactorY = srcCanvas.height / vpRef.current.h;
+
+    const x0 = Math.max(0, Math.floor(selRect.x * scaleFactorX));
+    const y0 = Math.max(0, Math.floor(selRect.y * scaleFactorY));
+    const x1 = Math.min(srcCanvas.width,  Math.ceil((selRect.x + selRect.w) * scaleFactorX));
+    const y1 = Math.min(srcCanvas.height, Math.ceil((selRect.y + selRect.h) * scaleFactorY));
     const w  = x1 - x0;
     const h  = y1 - y0;
     if (w <= 0 || h <= 0) return;
 
-    // ✔ Lấy pixel data SYNCHRONOUSLY - không có gì chẹn được
+    // ✔ Lấy pixel data SYNCHRONOUSLY
     const pixelData = srcCanvas.getContext('2d').getImageData(x0, y0, w, h);
 
-    // Tạo canvas riêng để giữ pixel data, sau đó toàn bộ là async Blob
+    // Tạo canvas tạm để tạo Blob
     const tmp = document.createElement('canvas');
     tmp.width = w; tmp.height = h;
     tmp.getContext('2d').putImageData(pixelData, 0, 0);
 
-    // Cleanup UI - có thể chạy ngay vì data đã an toàn
+    // Quy đổi ngược lại tọa độ PDF Points để lưu layer
     const savedAction = action;
-    const savedX = x0, savedY = y0;
+    const savedLX = selRect.x;
+    const savedLY = selRect.y;
+    const savedLW = selRect.w;
+    const savedLH = selRect.h;
     marqueeRef.current = null;
     const oc = ovCanvasRef.current;
     if (oc) oc.getContext('2d').clearRect(0, 0, oc.width, oc.height);
@@ -421,15 +428,15 @@ export default function App() {
     tmp.toBlob((blob) => {
       if (!blob) return;
       const imgUrl = URL.createObjectURL(blob);
-      const newImg = { id: Date.now(), type: 'image', x: savedX, y: savedY, w, h, dataUrl: imgUrl };
+      const newImg = { id: Date.now(), type: 'image', x: savedLX, y: savedLY, w: savedLW, h: savedLH, dataUrl: imgUrl };
 
       if (savedAction === 'cut') {
-        const maskLayer = { id: Date.now() + 1, type: 'mask', x: savedX, y: savedY, w, h };
+        const maskLayer = { id: Date.now() + 1, type: 'mask', x: savedLX, y: savedLY, w: savedLW, h: savedLH };
         layersRef.current = [...layersRef.current, maskLayer, newImg];
       } else {
         layersRef.current = [...layersRef.current, newImg];
       }
-      const clipboardItem = { id: Date.now() + 2, w, h, dataUrl: imgUrl };
+      const clipboardItem = { id: Date.now() + 2, w: savedLW, h: savedLH, dataUrl: imgUrl };
       setClipBin(prev => [...prev, clipboardItem]);
       saveHistory(); // SAVE after cut/copy creates layers
       setRenderId(v => v + 1);
