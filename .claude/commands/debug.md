@@ -1,26 +1,57 @@
 ---
-description: Debug a bug in PDF Patcher — systematic iOS Safari root-cause analysis
+description: Debug bất kỳ bug nào — tự động chẩn đoán môi trường, chọn đúng skill và tìm root cause
 ---
 
-Đọc skill: `.agent/skills/pdf-patcher-dev/SKILL.md` và `.agent/workflows/agent-skills-main/skills/debugging-and-error-recovery/SKILL.md`
+## Khởi Động Quy Trình Debug
 
-Sau đó làm theo quy trình 5 bước sau:
+Áp dụng skill: `.agent/workflows/agent-skills-main/skills/debugging-and-error-recovery/SKILL.md`
 
-1. **Reproduce** — Xác nhận bug tái hiện ở đâu: Desktop Chrome hay Safari iPhone/iPad?
-2. **Localize** — Xác định tầng lỗi:
-   - Touch/Canvas logic → `App.jsx` handlers (handleDown/Move/Up)
-   - Copy/Cut/Paste → `executeCutCopy` function
-   - PDF render → `pdfService.js`
-   - PDF export → `exportService.js`
-3. **Kiểm tra Anti-patterns iOS Safari:**
-   - `touchAction` còn là `'none'` trên overlay canvas không?
-   - `getImageData()` có được gọi SYNC trước `toBlob()` không?
-   - Import pdfjs từ `legacy/build/` chưa?
-4. **Fix Root Cause** — Sửa đúng chỗ, không patch triệu chứng
-5. **Verify:**
-   ```bash
-   cd app && npm run build
-   # Phải thấy ✓ built — không có lỗi đỏ
-   ```
+**$ARGUMENTS** là mô tả bug (để trống nếu anh sẽ giải thích sau).
 
-Nếu bug liên quan iOS Safari: Dùng kiến thức từ `pdf-patcher-dev/SKILL.md` trước khi thử giải pháp mới.
+---
+
+### Bước 0: Chẩn Đoán Môi Trường (LUÔN làm trước)
+
+Trước khi chạy quy trình, xác định:
+
+```
+Bug xảy ra ở đâu?
+├── Browser/Mobile UI    → Đọc thêm .agent/skills/pdf-patcher-dev/SKILL.md
+│                           (có iOS Safari specific rules)
+├── Build / Compile      → Chạy: cd app && npm run build 2>&1
+├── PDF Export           → Xem: app/src/services/exportService.js
+├── PDF Load / Render    → Xem: app/src/services/pdfService.js
+├── Logic / State        → Xem: app/src/App.jsx (state declarations)
+└── Backend / Deploy     → Xem: Vercel logs, git history
+```
+
+**Đọc thêm context file NẾU phù hợp — không đọc hết tất cả.**
+
+---
+
+### Bước 1–5: Theo Skill Chuẩn
+
+Sau khi xác định môi trường, chạy đúng nguyên protocol 5 bước từ `debugging-and-error-recovery/SKILL.md`:
+
+1. **Reproduce** — Tái hiện lỗi
+2. **Localize** — Thu hẹp phạm vi
+3. **Reduce** — Tạo minimal case
+4. **Fix Root Cause** — Sửa nguyên nhân, không sửa triệu chứng
+5. **Guard** — Đảm bảo không tái phát
+
+---
+
+### Xác Minh Kết Quả
+
+```bash
+cd app && npm run build
+# ✓ built = OK
+```
+
+Nếu bug liên quan mobile/iOS: thêm bước deploy test trên thiết bị thực.
+
+**Ví dụ dùng:**
+- `/debug` — bắt đầu phân tích, hỏi thêm nếu cần
+- `/debug copy ra layer trắng trên safari`
+- `/debug build thất bại sau khi thêm dependency`
+- `/debug export PDF bị lỗi font`
