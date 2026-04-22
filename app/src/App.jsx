@@ -3,7 +3,7 @@ import { loadPdf, renderPageToCanvas } from './services/pdfService';
 import { exportPdf } from './services/exportService';
 import {
   Hand, Square, Download, Trash2, Layers,
-  Copy, Scissors, ChevronLeft, ChevronRight, X, FolderOpen, Briefcase, ZoomIn, ZoomOut, ArrowUpToLine, ArrowDownToLine, Lock, Unlock
+  Copy, Scissors, ChevronLeft, ChevronRight, X, FolderOpen, Briefcase, ZoomIn, ZoomOut, ArrowUpToLine, ArrowDownToLine, Lock, Unlock, Undo2, Redo2
 } from 'lucide-react';
 import './index.css';
 
@@ -50,6 +50,7 @@ export default function App() {
   const [selRect,       setSelRect]       = useState(null); // {x,y,w,h} canvas coords
   const [selectedId,    setSelectedId]    = useState(null);
   const [renderId,      setRenderId]      = useState(0);   // bump to force re-render of SVG layers
+  const [historyStamp,  setHistoryStamp]  = useState(0);    // force re-render for undo/redo buttons
   const [zoom,          setZoom]          = useState(1.0);  // zoom level
   const zoomRef         = useRef(1.0);
 
@@ -64,6 +65,8 @@ export default function App() {
   const dragRef      = useRef(null); // drag state
   const pinchRef     = useRef({ initialDist: null, initialZoom: null });
   const rafRef       = useRef(null);
+  const historyRef   = useRef([]); // Array of snapshots
+  const historyIndexRef = useRef(-1);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
@@ -87,15 +90,49 @@ export default function App() {
     }
   }, []);
 
+  // ── History Logic ──
+  const saveHistory = useCallback(() => {
+    // Deep clone current layers (layers contain primitive values and string URLs)
+    const snapshot = layersRef.current.map(l => ({ ...l }));
+    
+    // Truncate forward history if we were in the middle of a stack
+    const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+    newHistory.push(snapshot);
+    
+    // Limit to 30 steps
+    if (newHistory.length > 30) newHistory.shift();
+    
+    historyRef.current = newHistory;
+    historyIndexRef.current = newHistory.length - 1;
+    setHistoryStamp(Date.now());
+  }, []);
+
+  const undo = () => {
+    if (historyIndexRef.current <= 0) return;
+    historyIndexRef.current--;
+    layersRef.current = historyRef.current[historyIndexRef.current].map(l => ({ ...l }));
+    setRenderId(v => v + 1);
+    setHistoryStamp(Date.now());
+  };
+
+  const redo = () => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+    historyIndexRef.current++;
+    layersRef.current = historyRef.current[historyIndexRef.current].map(l => ({ ...l }));
+    setRenderId(v => v + 1);
+    setHistoryStamp(Date.now());
+  };
+
   // ── Pointer handlers (all use refs, ZERO setState during move) ──
   const handleDown = useCallback((e) => {
-    if (e.touches && e.touches.length === 2) {
+    const numTouches = e.touches ? e.touches.length : 0;
+    if (numTouches >= 2) {
       e.preventDefault();
       const dist = getPinchDist(e);
       if (dist) {
         pinchRef.current = { initialDist: dist, initialZoom: zoomRef.current };
       }
-      return; 
+      return;
     }
     const curMode = modeRef.current;
     const canvas  = bgCanvasRef.current;
@@ -154,7 +191,7 @@ export default function App() {
       const { initialDist, initialZoom } = pinchRef.current;
       if (dist && initialDist && initialZoom) {
         let newZoom = initialZoom * (dist / initialDist);
-        newZoom = Math.max(0.5, Math.min(newZoom, 10)); // bounds
+        newZoom = Math.max(0.2, Math.min(newZoom, 15)); // mở rộng giới hạn zoom
         setZoom(newZoom);
       }
       return;
@@ -187,6 +224,8 @@ export default function App() {
       }
       return;
     }
+    // Pan mode: chỉ prevent default khi đang kéo layer
+    // Nếu không đang drag → buông tay để scroll container chạy bình thường
     if (dragRef.current) {
       e.preventDefault();
       const d   = dragRef.current;
@@ -205,10 +244,11 @@ export default function App() {
         }
       }
     }
+    // Không có dragRef → không preventDefault, scroll tự hoạt động
   }, [drawOverlay]);
 
   const handleUp = useCallback((e) => {
-    if (e.touches && e.touches.length < 2) {
+    if (!e.touches || e.touches.length < 2) {
       pinchRef.current = { initialDist: null, initialZoom: null };
     }
     if (modeRef.current === 'marquee') {
@@ -244,8 +284,26 @@ export default function App() {
     if (dragRef.current && !dragRef.current.hasMoved) {
       setSelectedId(dragRef.current.id);
     }
+    if (dragRef.current && dragRef.current.hasMoved) {
+      saveHistory();
+    }
     dragRef.current = null;
-  }, [drawOverlay]);
+  }, [saveHistory]);
+
+  // Safari Gesture API (iPad/iPhone specific - extremely smooth)
+  const handleGestureStart = useCallback((e) => {
+    e.preventDefault();
+    pinchRef.current = { initialDist: 1, initialZoom: zoomRef.current };
+  }, []);
+
+  const handleGestureChange = useCallback((e) => {
+    e.preventDefault();
+    if (pinchRef.current.initialZoom) {
+      let newZoom = pinchRef.current.initialZoom * e.scale;
+      newZoom = Math.max(0.2, Math.min(newZoom, 15));
+      setZoom(newZoom);
+    }
+  }, []);
 
   // ── Callback ref: attaches events the moment canvas mounts ──
   const ovCallbackRef = useCallback((node) => {
@@ -257,6 +315,9 @@ export default function App() {
       ovCanvasRef.current.removeEventListener('touchstart', handleDown);
       ovCanvasRef.current.removeEventListener('touchmove',  handleMove);
       ovCanvasRef.current.removeEventListener('touchend',   handleUp);
+      ovCanvasRef.current.removeEventListener('gesturestart',  handleGestureStart);
+      ovCanvasRef.current.removeEventListener('gesturechange', handleGestureChange);
+      ovCanvasRef.current.removeEventListener('gestureend',    handleUp);
     }
     ovCanvasRef.current = node;
     if (!node) return;
@@ -266,7 +327,10 @@ export default function App() {
     node.addEventListener('touchstart', handleDown,               { passive: false });
     node.addEventListener('touchmove',  handleMove,               { passive: false });
     node.addEventListener('touchend',   handleUp,                 { passive: false });
-  }, [handleDown, handleMove, handleUp]);
+    node.addEventListener('gesturestart',  handleGestureStart,    { passive: false });
+    node.addEventListener('gesturechange', handleGestureChange,   { passive: false });
+    node.addEventListener('gestureend',    handleUp,              { passive: false });
+  }, [handleDown, handleMove, handleUp, handleGestureStart, handleGestureChange]);
 
   // ── PDF rendering ──
   const renderPage = useCallback(async (pNum) => {
@@ -282,8 +346,12 @@ export default function App() {
     setSelectedId(null);
     setSelRect(null);
     setContextMenu(null);
+    // Reset history for the new page or start with current state
+    historyRef.current = [[...layersRef.current]];
+    historyIndexRef.current = 0;
+    setHistoryStamp(Date.now());
     setRenderId(v => v + 1);
-  }, [pdfDoc]);
+  }, [pdfDoc, saveHistory]);
 
   useEffect(() => { renderPage(pageNum); }, [pageNum, renderPage]);
 
@@ -296,8 +364,12 @@ export default function App() {
     setPdfDoc(doc);
     setNumPages(doc.numPages);
     setPageNum(1);
+    setPageNum(1);
     layersRef.current = [];
     pageStore.current = {};
+    historyRef.current = [[]];
+    historyIndexRef.current = 0;
+    setHistoryStamp(Date.now());
     setRenderId(v => v + 1);
   };
 
@@ -312,42 +384,61 @@ export default function App() {
 
   // ── Cut / Copy ──
   const executeCutCopy = (action) => {
-    if (!selRect) return;
-    const x = Math.round(selRect.x);
-    const y = Math.round(selRect.y);
-    const w = Math.round(selRect.w);
-    const h = Math.round(selRect.h);
-    
+    if (!selRect || !bgCanvasRef.current) return;
+    const srcCanvas = bgCanvasRef.current;
+
+    // Tạo snapshot pixel data ĐỒNG BỘ ngay lập tức trước mọi thứ khác
+    // Đảm bảo dù sau này canvas có bị re-render thì data cũng đã an toàn
+    const x0 = Math.max(0, Math.floor(selRect.x));
+    const y0 = Math.max(0, Math.floor(selRect.y));
+    const x1 = Math.min(srcCanvas.width,  Math.ceil(selRect.x + selRect.w));
+    const y1 = Math.min(srcCanvas.height, Math.ceil(selRect.y + selRect.h));
+    const w  = x1 - x0;
+    const h  = y1 - y0;
+    if (w <= 0 || h <= 0) return;
+
+    // ✔ Lấy pixel data SYNCHRONOUSLY - không có gì chẹn được
+    const pixelData = srcCanvas.getContext('2d').getImageData(x0, y0, w, h);
+
+    // Tạo canvas riêng để giữ pixel data, sau đó toàn bộ là async Blob
     const tmp = document.createElement('canvas');
     tmp.width = w; tmp.height = h;
-    const ctx = tmp.getContext('2d');
-    // Prevent blurring by disabling image smoothing on the tmp context, though integer coords fixes most of it
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(bgCanvasRef.current, x, y, w, h, 0, 0, w, h);
-    const newImg = { id: Date.now(), type: 'image', x, y, w, h, dataUrl: tmp.toDataURL('image/png') };
-    if (action === 'cut') {
-      const maskLayer = { id: Date.now() + 1, type: 'mask', x, y, w, h };
-      layersRef.current = [...layersRef.current, maskLayer, newImg];
-    } else {
-      layersRef.current = [...layersRef.current, newImg];
-    }
-    // Pre-save to Clipboard
-    const clipboardItem = { id: Date.now() + 2, w, h, dataUrl: newImg.dataUrl };
-    setClipBin(prev => [...prev, clipboardItem]);
+    tmp.getContext('2d').putImageData(pixelData, 0, 0);
 
+    // Cleanup UI - có thể chạy ngay vì data đã an toàn
+    const savedAction = action;
+    const savedX = x0, savedY = y0;
     marqueeRef.current = null;
     const oc = ovCanvasRef.current;
     if (oc) oc.getContext('2d').clearRect(0, 0, oc.width, oc.height);
     setSelRect(null);
     setContextMenu(null);
-    setSelectedId(null); // prevent ghost-tap from auto-selecting new layer
+    setSelectedId(null);
     setMode('pan');
-    setRenderId(v => v + 1);
+
+    // Async phần: tạo Blob và URL (không nhạy cảm với render mới nữa)
+    tmp.toBlob((blob) => {
+      if (!blob) return;
+      const imgUrl = URL.createObjectURL(blob);
+      const newImg = { id: Date.now(), type: 'image', x: savedX, y: savedY, w, h, dataUrl: imgUrl };
+
+      if (savedAction === 'cut') {
+        const maskLayer = { id: Date.now() + 1, type: 'mask', x: savedX, y: savedY, w, h };
+        layersRef.current = [...layersRef.current, maskLayer, newImg];
+      } else {
+        layersRef.current = [...layersRef.current, newImg];
+      }
+      const clipboardItem = { id: Date.now() + 2, w, h, dataUrl: imgUrl };
+      setClipBin(prev => [...prev, clipboardItem]);
+      saveHistory(); // SAVE after cut/copy creates layers
+      setRenderId(v => v + 1);
+    }, 'image/png');
   };
 
   const deleteLayer = (id) => {
     layersRef.current = layersRef.current.filter(l => l.id !== id);
     if (selectedId === id) setSelectedId(null);
+    saveHistory();
     setRenderId(v => v + 1);
   };
 
@@ -356,6 +447,7 @@ export default function App() {
     if (!l) return;
     l.locked = !l.locked;
     if (l.locked && selectedId === id) setSelectedId(null);
+    saveHistory();
     setRenderId(v => v + 1);
   };
 
@@ -368,6 +460,7 @@ export default function App() {
     if (direction === 'up') newList.push(item);
     else newList.unshift(item);
     layersRef.current = newList;
+    saveHistory();
     setRenderId(v => v + 1);
   };
 
@@ -379,6 +472,7 @@ export default function App() {
     const nx = l.x - (nw - l.w) / 2;
     const ny = l.y - (nh - l.h) / 2;
     l.w = nw; l.h = nh; l.x = nx; l.y = ny;
+    saveHistory();
     setRenderId(v => v + 1);
   };
 
@@ -396,6 +490,7 @@ export default function App() {
     setSelectedId(newLayer.id);
     setMode('pan');
     setClipBinOpen(false);
+    saveHistory();
     setRenderId(v => v + 1);
   };
 
@@ -549,9 +644,9 @@ export default function App() {
               style={{
                 position:'absolute', top:0, left:0, width:'100%', height:'100%',
                 cursor: mode==='marquee' ? 'crosshair' : 'default',
-                // pan-y in pan mode: allow vertical scroll through canvas.
-                // none in marquee mode: need full preventDefault for drawing.
-                touchAction: mode === 'marquee' ? 'none' : 'pan-x pan-y',
+                // LUON la 'none' de dam bao pinch-zoom hoat dong tren iOS Safari
+                // Scroll doc trang se hoat dong qua container ben ngoai
+                touchAction: 'none',
               }}
             />
 
@@ -670,6 +765,23 @@ export default function App() {
               <Trash2 size={20}/>
             </button>
           )}
+          <div style={{ width:'1px', height:'24px', background:'var(--border-color)', margin:'0 4px' }}/>
+          <button 
+            className="toolbar-btn" 
+            onClick={undo} 
+            disabled={historyIndexRef.current <= 0}
+            style={{ opacity: historyIndexRef.current <= 0 ? 0.3 : 1 }}
+          >
+            <Undo2 size={20}/>
+          </button>
+          <button 
+            className="toolbar-btn" 
+            onClick={redo} 
+            disabled={historyIndexRef.current >= historyRef.current.length - 1}
+            style={{ opacity: historyIndexRef.current >= historyRef.current.length - 1 ? 0.3 : 1 }}
+          >
+            <Redo2 size={20}/>
+          </button>
         </div>
       )}
     </div>
