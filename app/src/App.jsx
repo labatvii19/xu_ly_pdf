@@ -625,19 +625,25 @@ export default function App() {
             alignItems: 'flex-start',
             minWidth: '100%',
             minHeight: '100%',
-            padding: '24px',
+            padding: '40px',
             boxSizing: 'border-box'
           }}>
+            {/* Size-sync container: This DIV has the REAL zoomed dimensions to provide scrollbars */}
             <div style={{
-              position:'relative', 
-              width: `${vpRef.current.w}px`,
-              height: `${vpRef.current.h}px`,
-              transform: `scale(${zoom})`,
-              transformOrigin: 'top center',
-              transition: 'transform 0.1s ease-out',
-              boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
-              background: 'white'
+              width: `${vpRef.current.w * zoom}px`,
+              height: `${vpRef.current.h * zoom}px`,
+              position: 'relative'
             }}>
+              {/* Scaling container: This DIV renders the PDF at 1.0x but scaled visually */}
+              <div style={{
+                position:'absolute', top:0, left:0,
+                width: `${vpRef.current.w}px`,
+                height: `${vpRef.current.h}px`,
+                transform: `scale(${zoom})`,
+                transformOrigin: 'top left',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+                background: 'white'
+              }}>
             {/* PDF base render */}
             <canvas ref={bgCanvasRef} style={{ display:'block', width:'100%', height:'100%' }}/>
 
@@ -683,7 +689,9 @@ export default function App() {
                   position: 'absolute',
                   left: `${leftPercent}%`, 
                   top: `calc(${topPercent}% - 48px)`,
-                  transform: 'translateX(-50%)',
+                  // Nghịch đảo tỉ lệ zoom để menu luôn giữ kích thước chuẩn (1.0x)
+                  transform: `translateX(-50%) scale(${1 / zoom})`,
+                  transformOrigin: 'bottom center',
                   zIndex: 1000
                 }}>
                   <button className="ctx-btn" onClick={() => toggleLock(l.id)} title="Chốt chặt"><Lock size={16}/></button>
@@ -698,7 +706,8 @@ export default function App() {
             })()}
           </div>
         </div>
-      )}
+      </div>
+    )}
       </div>
 
       {/* CONTEXT MENU – fixed to viewport so it never drifts */}
