@@ -23,13 +23,14 @@ function getPinchDist(e) {
   return null;
 }
 
-function toPdfCoords(e, canvas, vp) {
+function toPdfCoords(e, canvas, vp, zoom) {
   const r   = canvas.getBoundingClientRect();
   const { x: cx, y: cy } = getClientXY(e);
+  // When using CSS scale, the bounding rect size is (base * zoom).
+  // We divide by zoom to get back to 1.0x PDF points.
   return {
-    // Map CSS pixels directly to PDF points (base viewport size)
-    x: (cx - r.left) * (vp.w / r.width),
-    y: (cy - r.top)  * (vp.h / r.height),
+    x: (cx - r.left) / zoom,
+    y: (cy - r.top)  / zoom,
   };
 }
 
@@ -145,7 +146,7 @@ export default function App() {
 
     if (curMode === 'marquee') {
       e.preventDefault();
-      const pos = toPdfCoords(e, canvas, vpRef.current);
+      const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
       const m = marqueeRef.current;
       
       // Hit test existing marquee
@@ -161,7 +162,7 @@ export default function App() {
       setSelRect(null);
     } else {
       // Pan mode: check if hitting a layer
-      const pos = toPdfCoords(e, canvas, vpRef.current);
+      const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
       const hit = [...layersRef.current].reverse().find(l =>
         l.type === 'image' &&
         !l.locked &&
@@ -176,8 +177,8 @@ export default function App() {
           id: hit.id,
           startCX: cx, startCY: cy,
           startLX: hit.x, startLY: hit.y,
-          scaleX: vpRef.current.w / r.width,
-          scaleY: vpRef.current.h / r.height,
+          scaleX: 1 / zoomRef.current,
+          scaleY: 1 / zoomRef.current,
           hasMoved: false,
         };
         // don't select yet — only select when drag released without movement
@@ -205,7 +206,7 @@ export default function App() {
       e.preventDefault();
       const canvas = bgCanvasRef.current;
       if (!canvas) return;
-      const pos = toPdfCoords(e, canvas, vpRef.current);
+      const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
       
       if (dragRef.current && dragRef.current.type === 'marquee') {
         const m = marqueeRef.current;
@@ -272,11 +273,11 @@ export default function App() {
         // Position context menu in FIXED viewport coords
         const canvas = bgCanvasRef.current;
         const r      = canvas.getBoundingClientRect();
-        const sx     = r.width  / vpRef.current.w;
-        const sy     = r.height / vpRef.current.h;
+        // Since we use CSS transform scale, 1 pixel in screen = 1/zoom units in base coordinates
+        const invZoom = 1 / zoomRef.current;
         setContextMenu({
-          x: r.left + (m.x + m.w / 2) * sx,
-          y: r.top  + (m.y + m.h) * sy + 14,
+          x: r.left + (m.x + m.w / 2) * zoomRef.current,
+          y: r.top  + (m.y + m.h) * zoomRef.current + 14,
         });
       } else {
         marqueeRef.current = null;
@@ -619,15 +620,24 @@ export default function App() {
 
         {pdfFile && (
           <div style={{
-            position:'relative', 
-            // text-align center normally centers inline-blocks. If wider than screen, it clips left.
-            // Using a flex wrapper instead allows safe scrolling. But we also just use display block with margin auto.
-            display: 'block', 
-            margin: '12px auto',
-            width: `${Math.floor(vpRef.current.w * zoom)}px`,
-            height: `${Math.floor(vpRef.current.h * zoom)}px`,
-            maxWidth: 'none'
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'flex-start',
+            minWidth: '100%',
+            minHeight: '100%',
+            padding: '24px',
+            boxSizing: 'border-box'
           }}>
+            <div style={{
+              position:'relative', 
+              width: `${vpRef.current.w}px`,
+              height: `${vpRef.current.h}px`,
+              transform: `scale(${zoom})`,
+              transformOrigin: 'top center',
+              transition: 'transform 0.1s ease-out',
+              boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+              background: 'white'
+            }}>
             {/* PDF base render */}
             <canvas ref={bgCanvasRef} style={{ display:'block', width:'100%', height:'100%' }}/>
 
@@ -687,7 +697,8 @@ export default function App() {
               );
             })()}
           </div>
-        )}
+        </div>
+      )}
       </div>
 
       {/* CONTEXT MENU – fixed to viewport so it never drifts */}
