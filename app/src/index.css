@@ -118,17 +118,26 @@ body {
 /* ---- BOTTOM PILL TOOLBAR ---- */
 .bottom-pill {
   position: fixed;
-  bottom: 32px;
+  bottom: max(32px, env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 6px 8px;
+  padding: 4px; /* More compact */
   border-radius: 99px;
-  gap: 8px;
+  gap: 4px; /* Tighter gap for mobile */
   z-index: 300;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  max-width: 95vw; /* Don't exceed screen width */
+  overflow: hidden;
+}
+
+@media (min-width: 480px) {
+  .bottom-pill {
+    padding: 6px 8px;
+    gap: 8px;
+  }
 }
 .toolbar-btn {
   background: transparent;
