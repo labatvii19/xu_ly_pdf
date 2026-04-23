@@ -1080,20 +1080,34 @@ export default function App() {
                   try {
                     const canvas = bgCanvasRef.current;
                     const gctx = canvas.getContext('2d', { willReadFrequently: true });
-                    // Soi màu trong vùng 40x40px quanh chữ
-                    const data = gctx.getImageData(l.x, l.y - 20, 40, 40).data;
+                    
+                    // Cần nhân tọa độ PDF với tỉ lệ scale của Canvas (thường là 2.5)
+                    const sc = canvas.width / vpRef.current.w;
+                    const sampleW = 20;
+                    const sampleH = 20;
+                    const data = gctx.getImageData(l.x * sc, (l.y - 10) * sc, sampleW, sampleH).data;
+                    
                     let minB = 765, bestC = [0,0,0];
+                    let totalR=0, totalG=0, totalB=0, count=0;
+
                     for (let i=0; i<data.length; i+=4) {
-                      const b = data[i]+data[i+1]+data[i+2];
-                      if (b < minB && b > 30) { 
-                        minB = b; bestC = [data[i], data[i+1], data[i+2]];
+                      const r=data[i], g=data[i+1], b=data[i+2];
+                      const brightness = r+g+b;
+                      // Tìm điểm mực đậm nhất trong vùng soi
+                      if (brightness < minB) {
+                        minB = brightness;
+                        bestC = [r, g, b];
                       }
+                      totalR+=r; totalG+=g; totalB+=b; count++;
                     }
-                    if (minB < 700) {
-                      const newCol = `rgb(${bestC[0]},${bestC[1]},${bestC[2]})`;
-                      updateLayer(l.id, { color: newCol });
-                      setBrushColor(newCol);
-                    }
+                    
+                    // Nếu vùng soi quá sáng (toàn giấy trắng), lấy màu trung bình
+                    // Nếu thấy mực (minB < 500), lấy màu mực đậm nhất
+                    const resultC = (minB < 500) ? bestC : [Math.round(totalR/count), Math.round(totalG/count), Math.round(totalB/count)];
+                    const newCol = `rgb(${resultC[0]},${resultC[1]},${resultC[2]})`;
+                    
+                    updateLayer(l.id, { color: newCol });
+                    setBrushColor(newCol);
                   } catch(e) { console.error("Pipette error:", e); }
                 }}
               ><Pipette size={14}/></button>
