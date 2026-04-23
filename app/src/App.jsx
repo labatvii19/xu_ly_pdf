@@ -181,9 +181,9 @@ export default function App() {
         y: pos.y,
         text: 'Nhập để sửa...',
         fontSize: 20,
-        color: brushColor,
-        opacity: 0.85,
-        blur: 0.3,
+        color: '#333333',
+        opacity: 0.9,
+        blur: 0.5,
         bold: false,
         locked: false
       };
@@ -191,7 +191,7 @@ export default function App() {
       setSelectedId(newLayer.id);
       saveHistory();
       setRenderId(v => v + 1);
-      setMode('pan');
+      // Giữ mode text để anh có thể chấm tiếp nhiều chỗ
     } else if (curMode === 'pencil') {
       e.preventDefault();
       const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
@@ -964,8 +964,18 @@ export default function App() {
               )}
               {/* Selected layer border */}
               {(() => {
-                const l = layersRef.current.find(x => x.id === selectedId && x.type === 'image');
-                return l ? <rect x={l.x} y={l.y} width={l.w} height={l.h} fill="none" stroke="#007AFF" strokeWidth="3" strokeDasharray="7 3"/> : null;
+                const l = layersRef.current.find(x => x.id === selectedId && (x.type === 'image' || x.type === 'text' || x.type === 'mask'));
+                if (!l) return null;
+                
+                // Hiển thị khung bao quanh layer đang chọn để dễ nhận diện
+                let x = l.x, y = l.y, w = l.w, h = l.h;
+                if (l.type === 'text') {
+                  x = l.x - 5;
+                  y = l.y - l.fontSize;
+                  w = (l.text.length * l.fontSize) * 0.6 + 10;
+                  h = l.fontSize + 10;
+                }
+                return <rect x={x} y={y} width={w} height={h} fill="none" stroke="#007AFF" strokeWidth="2" strokeDasharray="5 2"/>;
               })()}
             </svg>
 
