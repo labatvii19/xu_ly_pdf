@@ -179,9 +179,12 @@ export default function App() {
         type: 'text',
         x: pos.x,
         y: pos.y,
-        text: 'Nhấp để sửa...',
+        text: 'Nhập để sửa...',
         fontSize: 20,
         color: brushColor,
+        opacity: 0.85,
+        blur: 0.3,
+        bold: false,
         locked: false
       };
       layersRef.current = [...layersRef.current, newLayer];
@@ -770,7 +773,9 @@ export default function App() {
           points: l.points || null,
           color: l.color || '#000000',
           strokeWidth: l.width || 0,
-          font: l.font || 'sans'
+          font: l.font || 'sans',
+          opacity: l.opacity || 0.9,
+          bold: l.bold || false
         })),
         viewportWidth:  vpRef.current.w,
         viewportHeight: vpRef.current.h,
@@ -912,11 +917,12 @@ export default function App() {
                       x={l.x} y={l.y} 
                       fontSize={l.fontSize} 
                       fill={l.color}
+                      opacity={l.opacity || 0.9}
                       fontFamily={l.font === 'serif' ? 'serif' : 'sans-serif'}
                       style={{ 
                         userSelect: 'none', 
-                        fontWeight: 500, 
-                        filter: selectedId===l.id ? 'drop-shadow(0 0 4px rgba(0,122,255,0.8))' : 'none',
+                        fontWeight: l.bold ? 'bold' : '500', 
+                        filter: `blur(${l.blur || 0.3}px) ${selectedId===l.id ? 'drop-shadow(0 0 4px rgba(0,122,255,0.8))' : ''}`,
                         cursor: 'pointer'
                       }}
                     >
@@ -1049,6 +1055,22 @@ export default function App() {
               style={{ fontFamily: 'sans-serif' }} 
               onClick={() => updateLayer(l.id, { font: 'sans' })}
             >A</button>
+            <button 
+              className="icon-btn" 
+              style={{ fontWeight: l.bold ? '900' : '400' }} 
+              onClick={() => updateLayer(l.id, { bold: !l.bold })}
+            >B</button>
+            
+            <div style={{ display:'flex', alignItems:'center', gap:4, borderLeft:'1px solid #ddd', paddingLeft:8 }}>
+              <span style={{ fontSize:10 }}>Mờ</span>
+              <input 
+                type="range" min="0.1" max="1" step="0.05" 
+                value={l.opacity} 
+                onChange={(e) => updateLayer(l.id, { opacity: parseFloat(e.target.value) })}
+                style={{ width: 60 }}
+              />
+            </div>
+
             <button className="icon-btn" style={{ color: 'red' }} onClick={() => deleteLayer(l.id)}><Trash2 size={14}/></button>
           </div>
         );

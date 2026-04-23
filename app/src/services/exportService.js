@@ -65,6 +65,7 @@ export const exportPdf = async (originalFile, allPagesLayersData) => {
           size: (obj.fontSize || 18) * scaleRatioY,
           font: fontToUse,
           color: rgb(r, g, b),
+          opacity: obj.opacity || 0.9,
         });
       } else if (obj.type === 'image' && obj.src) {
         // Embed and draw image (the copied text snippet)
