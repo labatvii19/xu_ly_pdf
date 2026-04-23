@@ -1079,32 +1079,16 @@ export default function App() {
                 onClick={() => {
                   try {
                     const canvas = bgCanvasRef.current;
+                    if (!canvas) return;
                     const gctx = canvas.getContext('2d', { willReadFrequently: true });
-                    
-                    // Cần nhân tọa độ PDF với tỉ lệ scale của Canvas (thường là 2.5)
                     const sc = canvas.width / vpRef.current.w;
-                    const sampleW = 20;
-                    const sampleH = 20;
-                    const data = gctx.getImageData(l.x * sc, (l.y - 10) * sc, sampleW, sampleH).data;
                     
-                    let minB = 765, bestC = [0,0,0];
-                    let totalR=0, totalG=0, totalB=0, count=0;
-
-                    for (let i=0; i<data.length; i+=4) {
-                      const r=data[i], g=data[i+1], b=data[i+2];
-                      const brightness = r+g+b;
-                      // Tìm điểm mực đậm nhất trong vùng soi
-                      if (brightness < minB) {
-                        minB = brightness;
-                        bestC = [r, g, b];
-                      }
-                      totalR+=r; totalG+=g; totalB+=b; count++;
-                    }
+                    // Lấy tọa độ tâm đoạn chữ trên Canvas
+                    const px = Math.min(canvas.width - 1, Math.max(0, Math.floor(l.x * sc)));
+                    const py = Math.min(canvas.height - 1, Math.max(0, Math.floor((l.y - (l.fontSize/3)) * sc)));
                     
-                    // Nếu vùng soi quá sáng (toàn giấy trắng), lấy màu trung bình
-                    // Nếu thấy mực (minB < 500), lấy màu mực đậm nhất
-                    const resultC = (minB < 500) ? bestC : [Math.round(totalR/count), Math.round(totalG/count), Math.round(totalB/count)];
-                    const newCol = `rgb(${resultC[0]},${resultC[1]},${resultC[2]})`;
+                    const pixel = gctx.getImageData(px, py, 1, 1).data;
+                    const newCol = `rgb(${pixel[0]},${pixel[1]},${pixel[2]})`;
                     
                     updateLayer(l.id, { color: newCol });
                     setBrushColor(newCol);
