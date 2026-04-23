@@ -3,7 +3,7 @@ import { loadPdf, renderPageToCanvas } from './services/pdfService';
 import { exportPdf } from './services/exportService';
 import {
   Hand, Square, Download, Trash2, Layers, Pencil, Eraser,
-  Copy, Scissors, ChevronLeft, ChevronRight, X, FolderOpen, Briefcase, ZoomIn, ZoomOut, ArrowUpToLine, ArrowDownToLine, Lock, Unlock, Undo2, Redo2, Sparkles
+  Copy, Scissors, ChevronLeft, ChevronRight, X, FolderOpen, Briefcase, ZoomIn, ZoomOut, ArrowUpToLine, ArrowDownToLine, Lock, Unlock, Undo2, Redo2, Sparkles, Type
 } from 'lucide-react';
 import './index.css';
 
@@ -171,6 +171,24 @@ export default function App() {
       marqueeRef.current = { x: pos.x, y: pos.y, w: 0, h: 0, x0: pos.x, y0: pos.y, isDrawing: true };
       setContextMenu(null);
       setSelRect(null);
+    } else if (curMode === 'text') {
+      e.preventDefault();
+      const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
+      const newLayer = {
+        id: Date.now(),
+        type: 'text',
+        x: pos.x,
+        y: pos.y,
+        text: 'Nhấp để sửa...',
+        fontSize: 20,
+        color: brushColor,
+        locked: false
+      };
+      layersRef.current = [...layersRef.current, newLayer];
+      setSelectedId(newLayer.id);
+      saveHistory();
+      setRenderId(v => v + 1);
+      setMode('pan');
     } else if (curMode === 'pencil') {
       e.preventDefault();
       const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
@@ -178,12 +196,22 @@ export default function App() {
     } else if (curMode === 'pan') {
       // Pan mode: check if hitting a layer
       const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
-      const hit = [...layersRef.current].reverse().find(l =>
-        l.type === 'image' &&
-        !l.locked &&
-        pos.x >= l.x && pos.x <= l.x + l.w &&
-        pos.y >= l.y && pos.y <= l.y + l.h
-      );
+      const hit = [...layersRef.current].reverse().find(l => {
+        if (l.locked) return false;
+        const margin = 10; // Easy hit
+        if (l.type === 'image' || l.type === 'mask') {
+          return pos.x >= l.x && pos.x <= l.x + l.w &&
+                 pos.y >= l.y && pos.y <= l.y + l.h;
+        }
+        if (l.type === 'text') {
+          // Approximate hit area for text
+          const tw = (l.text.length * l.fontSize) * 0.6;
+          const th = l.fontSize;
+          return pos.x >= l.x && pos.x <= l.x + tw &&
+                 pos.y >= l.y - th && pos.y <= l.y;
+        }
+        return false;
+      });
       if (hit) {
         e.preventDefault();
         const r    = canvas.getBoundingClientRect();
@@ -643,6 +671,12 @@ export default function App() {
     setRenderId(v => v + 1);
   };
 
+  const updateLayer = (id, props) => {
+    layersRef.current = layersRef.current.map(l => l.id === id ? { ...l, ...props } : l);
+    saveHistory();
+    setRenderId(v => v + 1);
+  };
+
   const deleteLayer = (id) => {
     layersRef.current = layersRef.current.filter(l => l.id !== id);
     if (selectedId === id) setSelectedId(null);
@@ -854,6 +888,21 @@ export default function App() {
               {layersRef.current.map(l =>
                 l.type === 'mask'
                   ? <rect key={l.id} x={l.x} y={l.y} width={l.w} height={l.h} fill={l.color || 'white'}/>
+                  : l.type === 'text'
+                  ? <text 
+                      key={l.id} 
+                      x={l.x} y={l.y} 
+                      fontSize={l.fontSize} 
+                      fill={l.color}
+                      style={{ 
+                        userSelect: 'none', 
+                        fontWeight: 500, 
+                        filter: selectedId===l.id ? 'drop-shadow(0 0 4px rgba(0,122,255,0.8))' : 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {l.text}
+                    </text>
                   : l.type === 'image'
 ? <image key={l.id} href={l.dataUrl} x={l.x} y={l.y} width={l.w} height={l.h}
                       style={{ filter: selectedId===l.id ? 'drop-shadow(0 0 8px rgba(0,122,255,0.7))' : 'none' }}
@@ -937,6 +986,44 @@ export default function App() {
       </div>
     )}
       </div>
+
+      {/* TEXT EDITOR FLOATING PILL */}
+      {(() => {
+        const l = layersRef.current.find(x => x.id === selectedId && x.type === 'text');
+        if (!l) return null;
+        
+        // Calculate position in viewport pixels
+        const canvasRect = bgCanvasRef.current?.getBoundingClientRect();
+        if (!canvasRect) return null;
+        
+        const top  = canvasRect.top  + (l.y * zoom) - 60;
+        const left = canvasRect.left + (l.x * zoom);
+
+        return (
+          <div 
+            className="glass-panel text-editor-pill"
+            style={{ 
+              position:'fixed', top, left, 
+              zIndex: 2000, display: 'flex', gap: '8px', padding: '6px 12px',
+              transform: 'translateX(-20%)'
+            }}
+          >
+            <input 
+              type="text" 
+              value={l.text}
+              autoFocus
+              onChange={(e) => updateLayer(l.id, { text: e.target.value })}
+              style={{ 
+                border: 'none', background: 'rgba(0,0,0,0.05)', borderRadius: '4px',
+                padding: '4px 8px', width: '150px', outline: 'none'
+              }}
+            />
+            <button className="icon-btn" onClick={() => updateLayer(l.id, { fontSize: l.fontSize + 2 })}><ZoomIn size={14}/></button>
+            <button className="icon-btn" onClick={() => updateLayer(l.id, { fontSize: Math.max(8, l.fontSize - 2) })}><ZoomOut size={14}/></button>
+            <button className="icon-btn" style={{ color: 'red' }} onClick={() => deleteLayer(l.id)}><Trash2 size={14}/></button>
+          </div>
+        );
+      })()}
 
       {/* CONTEXT MENU – fixed to viewport so it never drifts */}
       {contextMenu && (
@@ -1064,6 +1151,9 @@ export default function App() {
           </button>
           <button className={`toolbar-btn ${mode==='eraser' ? 'active' : ''}`} onClick={() => setMode('eraser')}>
             <Eraser size={20}/>
+          </button>
+          <button className={`toolbar-btn ${mode==='text' ? 'active' : ''}`} onClick={() => setMode('text')}>
+            <Type size={20}/>
           </button>
           <button className="toolbar-btn" onClick={() => { setClipBinOpen(false); setLayerPanelOpen(p => !p); }}>
             <Layers size={20}/>

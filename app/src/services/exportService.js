@@ -51,6 +51,14 @@ export const exportPdf = async (originalFile, allPagesLayersData) => {
           height: obj.height * scaleRatioY,
           color: rgb(r, g, b)
         });
+      } else if (obj.type === 'text') {
+        const { r, g, b } = parseColor(obj.color);
+        page.drawText(obj.text || '', {
+          x: obj.left * scaleRatioX,
+          y: height - (obj.top * scaleRatioY), // Text baseline/origin adjustment
+          size: (obj.fontSize || 18) * scaleRatioY,
+          color: rgb(r, g, b),
+        });
       } else if (obj.type === 'image' && obj.src) {
         // Embed and draw image (the copied text snippet)
         let img;
