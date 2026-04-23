@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { loadPdf, renderPageToCanvas } from './services/pdfService';
 import { exportPdf } from './services/exportService';
 import {
-  Hand, Square, Download, Trash2, Layers,
+  Hand, Square, Download, Trash2, Layers, Pencil, Eraser,
   Copy, Scissors, ChevronLeft, ChevronRight, X, FolderOpen, Briefcase, ZoomIn, ZoomOut, ArrowUpToLine, ArrowDownToLine, Lock, Unlock, Undo2, Redo2
 } from 'lucide-react';
 import './index.css';
@@ -53,6 +53,8 @@ export default function App() {
   const [renderId,      setRenderId]      = useState(0);   // bump to force re-render of SVG layers
   const [historyStamp,  setHistoryStamp]  = useState(0);    // force re-render for undo/redo buttons
   const [zoom,          setZoom]          = useState(1.0);  // zoom level
+  const [brushSize,     setBrushSize]     = useState(5);
+  const [brushColor,    setBrushColor]    = useState('#000000');
   const zoomRef         = useRef(1.0);
 
   // Refs
@@ -66,6 +68,7 @@ export default function App() {
   const dragRef      = useRef(null); // drag state
   const pinchRef     = useRef({ initialDist: null, initialZoom: null });
   const rafRef       = useRef(null);
+  const activeStrokeRef = useRef(null); // { points: [], color, size }
   const historyRef   = useRef([]); // Array of snapshots
   const historyIndexRef = useRef(-1);
 
@@ -160,7 +163,11 @@ export default function App() {
       marqueeRef.current = { x: pos.x, y: pos.y, w: 0, h: 0, x0: pos.x, y0: pos.y };
       setContextMenu(null);
       setSelRect(null);
-    } else {
+    } else if (curMode === 'pencil') {
+      e.preventDefault();
+      const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
+      activeStrokeRef.current = { points: [pos], color: brushColor, size: brushSize };
+    } else if (curMode === 'pan') {
       // Pan mode: check if hitting a layer
       const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
       const hit = [...layersRef.current].reverse().find(l =>
@@ -173,6 +180,7 @@ export default function App() {
         e.preventDefault();
         const r    = canvas.getBoundingClientRect();
         const { x: cx, y: cy } = getClientXY(e);
+        setSelectedId(hit.id); // Select it while dragging
         dragRef.current = {
           id: hit.id,
           startCX: cx, startCY: cy,
@@ -181,14 +189,31 @@ export default function App() {
           scaleY: 1 / zoomRef.current,
           hasMoved: false,
         };
-        // don't select yet — only select when drag released without movement
       } else {
         // If no layer hit in pan mode: deselect current layer
         setSelectedId(null);
         // do NOT call preventDefault → touch event propagates to parent scroll container naturally
       }
+    } else if (curMode === 'eraser') {
+      e.preventDefault();
+      const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
+      const hitIndex = layersRef.current.findIndex(l => {
+        if (l.type === 'image' || l.type === 'mask') {
+          return pos.x >= l.x && pos.x <= l.x + l.w && pos.y >= l.y && pos.y <= l.y + l.h;
+        }
+        if (l.type === 'stroke') {
+          return l.points.some(p => Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - p.y, 2)) < brushSize);
+        }
+        return false;
+      });
+      if (hitIndex !== -1) {
+        layersRef.current.splice(hitIndex, 1);
+        saveHistory();
+        setRenderId(v => v + 1);
+      }
+      activeStrokeRef.current = { isEraser: true };
     }
-  }, []);
+  }, [brushColor, brushSize, saveHistory, setRenderId]);
 
   const handleMove = useCallback((e) => {
     if (e.touches && e.touches.length === 2) {
@@ -227,6 +252,45 @@ export default function App() {
         if (!rafRef.current) {
           rafRef.current = requestAnimationFrame(() => { drawOverlay(); rafRef.current = null; });
         }
+      }
+      return;
+    }
+
+    if (modeRef.current === 'pencil' && activeStrokeRef.current) {
+      e.preventDefault();
+      const canvas = bgCanvasRef.current;
+      if (!canvas) return;
+      const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
+      const pts = activeStrokeRef.current.points;
+      const last = pts[pts.length - 1];
+      const dist = Math.sqrt(Math.pow(pos.x - last.x, 2) + Math.pow(pos.y - last.y, 2));
+      if (dist > 2) {
+        pts.push(pos);
+        if (!rafRef.current) {
+          rafRef.current = requestAnimationFrame(() => { setRenderId(v => v + 1); rafRef.current = null; });
+        }
+      }
+      return;
+    }
+
+    if (modeRef.current === 'eraser' && activeStrokeRef.current?.isEraser) {
+      e.preventDefault();
+      const canvas = bgCanvasRef.current;
+      if (!canvas) return;
+      const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
+      const hitIndex = layersRef.current.findIndex(l => {
+        if (l.type === 'image' || l.type === 'mask') {
+          return pos.x >= l.x && pos.x <= l.x + l.w && pos.y >= l.y && pos.y <= l.y + l.h;
+        }
+        if (l.type === 'stroke') {
+          return l.points.some(p => Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - p.y, 2)) < brushSize);
+        }
+        return false;
+      });
+      if (hitIndex !== -1) {
+        layersRef.current.splice(hitIndex, 1);
+        saveHistory();
+        setRenderId(v => v + 1);
       }
       return;
     }
@@ -286,6 +350,26 @@ export default function App() {
       }
       return;
     }
+
+    if (modeRef.current === 'pencil' && activeStrokeRef.current) {
+      e.preventDefault();
+      const s = activeStrokeRef.current;
+      if (s.points.length > 1) {
+        const newLayer = {
+          id: Date.now(),
+          type: 'stroke',
+          color: s.color,
+          width: s.size,
+          points: s.points
+        };
+        layersRef.current = [...layersRef.current, newLayer];
+        saveHistory();
+        setRenderId(v => v + 1);
+      }
+      activeStrokeRef.current = null;
+      return;
+    }
+    activeStrokeRef.current = null;
     // Only mark layer as selected if it was a tap (no movement)
     if (dragRef.current && !dragRef.current.hasMoved) {
       setSelectedId(dragRef.current.id);
@@ -516,11 +600,15 @@ export default function App() {
     Object.entries(pageStore.current).forEach(([idx, layers]) => {
       allData[idx] = {
         objects: layers.map(l => ({
-          type: l.type === 'image' ? 'image' : 'rect',
+          type: l.type,
           left: l.x, top: l.y, width: l.w, height: l.h,
           scaleX: 1, scaleY: 1,
           fill: l.type === 'mask' ? '#ffffff' : 'transparent',
           src: l.dataUrl || null,
+          // Bổ sung dữ liệu cho nét vẽ
+          points: l.points || null,
+          color: l.color || '#000000',
+          strokeWidth: l.width || 0,
         })),
         viewportWidth:  vpRef.current.w,
         viewportHeight: vpRef.current.h,
@@ -656,9 +744,30 @@ export default function App() {
               {layersRef.current.map(l =>
                 l.type === 'mask'
                   ? <rect key={l.id} x={l.x} y={l.y} width={l.w} height={l.h} fill="white"/>
-                  : <image key={l.id} href={l.dataUrl} x={l.x} y={l.y} width={l.w} height={l.h}
+                  : l.type === 'image'
+? <image key={l.id} href={l.dataUrl} x={l.x} y={l.y} width={l.w} height={l.h}
                       style={{ filter: selectedId===l.id ? 'drop-shadow(0 0 8px rgba(0,122,255,0.7))' : 'none' }}
                     />
+                  : <path
+                      key={l.id}
+                      d={`M ${l.points.map(p => `${p.x} ${p.y}`).join(' L ')}`}
+                      fill="none"
+                      stroke={l.color}
+                      strokeWidth={l.width}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+              )}
+              {/* Active stroke preview */}
+              {activeStrokeRef.current && (
+                <path
+                  d={`M ${activeStrokeRef.current.points.map(p => `${p.x} ${p.y}`).join(' L ')}`}
+                  fill="none"
+                  stroke={activeStrokeRef.current.color}
+                  strokeWidth={activeStrokeRef.current.size}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               )}
               {/* Selected layer border */}
               {(() => {
@@ -777,6 +886,44 @@ export default function App() {
         </div>
       )}
 
+      {/* BRUSH SETTINGS (SUB-TOOLBAR) */}
+      {pdfFile && (mode === 'pencil' || mode === 'eraser') && (
+        <div className="sub-pill glass-panel" style={{
+          position: 'fixed', bottom: '86px', left: '50%', transform: 'translateX(-50%)',
+          display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', zIndex: 1000
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600 }}>Size</span>
+            <input 
+              type="range" min="1" max="50" value={brushSize} 
+              onChange={(e) => setBrushSize(parseInt(e.target.value))}
+              style={{ width: '80px', height: '4px', accentColor: 'var(--primary-color)' }}
+            />
+            <span style={{ fontSize: '11px', width: '20px' }}>{brushSize}</span>
+          </div>
+          
+          {mode === 'pencil' && (
+            <>
+              <div style={{ width: '1px', height: '16px', background: 'var(--border-color)' }}/>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {['#000000', '#ffffff', '#FF3B30', '#007AFF'].map(c => (
+                  <button 
+                    key={c}
+                    onClick={() => setBrushColor(c)}
+                    style={{
+                      width: '20px', height: '20px', borderRadius: '50%', background: c,
+                      border: brushColor === c ? '2px solid var(--primary-color)' : '1px solid rgba(0,0,0,0.1)',
+                      boxShadow: brushColor === c ? '0 0 0 2px white' : 'none',
+                      padding: 0
+                    }}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* BOTTOM TOOL PILL */}
       {pdfFile && (
         <div className="bottom-pill glass-panel">
@@ -785,6 +932,12 @@ export default function App() {
           </button>
           <button className={`toolbar-btn ${mode==='marquee' ? 'active' : ''}`} onClick={() => setMode('marquee')}>
             <Square size={20}/>
+          </button>
+          <button className={`toolbar-btn ${mode==='pencil' ? 'active' : ''}`} onClick={() => setMode('pencil')}>
+            <Pencil size={20}/>
+          </button>
+          <button className={`toolbar-btn ${mode==='eraser' ? 'active' : ''}`} onClick={() => setMode('eraser')}>
+            <Eraser size={20}/>
           </button>
           <button className="toolbar-btn" onClick={() => { setClipBinOpen(false); setLayerPanelOpen(p => !p); }}>
             <Layers size={20}/>
