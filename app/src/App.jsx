@@ -71,6 +71,10 @@ export default function App() {
   const activeStrokeRef = useRef(null); // { points: [], color, size }
   const historyRef   = useRef([]); // Array of snapshots
   const historyIndexRef = useRef(-1);
+  // Stable refs for event handlers — fixes stale closure bug
+  const handleDownRef = useRef(null);
+  const handleMoveRef = useRef(null);
+  const handleUpRef   = useRef(null);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
@@ -407,32 +411,41 @@ export default function App() {
     }
   }, []);
 
+  // Keep handler refs always pointing to latest version
+  useEffect(() => { handleDownRef.current = handleDown; }, [handleDown]);
+  useEffect(() => { handleMoveRef.current = handleMove; }, [handleMove]);
+  useEffect(() => { handleUpRef.current   = handleUp;   }, [handleUp]);
+
   // ── Callback ref: attaches events the moment canvas mounts ──
+  // Uses STABLE wrapper functions → no stale closure bug
+  const stableDown  = useCallback((e) => handleDownRef.current?.(e), []);
+  const stableMove  = useCallback((e) => handleMoveRef.current?.(e), []);
+  const stableUp    = useCallback((e) => handleUpRef.current?.(e),   []);
+
   const ovCallbackRef = useCallback((node) => {
     if (ovCanvasRef.current) {
-      // Cleanup old
-      ovCanvasRef.current.removeEventListener('mousedown',  handleDown);
-      ovCanvasRef.current.removeEventListener('mousemove',  handleMove);
-      ovCanvasRef.current.removeEventListener('mouseup',    handleUp);
-      ovCanvasRef.current.removeEventListener('touchstart', handleDown);
-      ovCanvasRef.current.removeEventListener('touchmove',  handleMove);
-      ovCanvasRef.current.removeEventListener('touchend',   handleUp);
+      ovCanvasRef.current.removeEventListener('mousedown',  stableDown);
+      ovCanvasRef.current.removeEventListener('mousemove',  stableMove);
+      ovCanvasRef.current.removeEventListener('mouseup',    stableUp);
+      ovCanvasRef.current.removeEventListener('touchstart', stableDown);
+      ovCanvasRef.current.removeEventListener('touchmove',  stableMove);
+      ovCanvasRef.current.removeEventListener('touchend',   stableUp);
       ovCanvasRef.current.removeEventListener('gesturestart',  handleGestureStart);
       ovCanvasRef.current.removeEventListener('gesturechange', handleGestureChange);
-      ovCanvasRef.current.removeEventListener('gestureend',    handleUp);
+      ovCanvasRef.current.removeEventListener('gestureend',    stableUp);
     }
     ovCanvasRef.current = node;
     if (!node) return;
-    node.addEventListener('mousedown',  handleDown,               { passive: false });
-    node.addEventListener('mousemove',  handleMove,               { passive: false });
-    node.addEventListener('mouseup',    handleUp,                 { passive: false });
-    node.addEventListener('touchstart', handleDown,               { passive: false });
-    node.addEventListener('touchmove',  handleMove,               { passive: false });
-    node.addEventListener('touchend',   handleUp,                 { passive: false });
-    node.addEventListener('gesturestart',  handleGestureStart,    { passive: false });
-    node.addEventListener('gesturechange', handleGestureChange,   { passive: false });
-    node.addEventListener('gestureend',    handleUp,              { passive: false });
-  }, [handleDown, handleMove, handleUp, handleGestureStart, handleGestureChange]);
+    node.addEventListener('mousedown',  stableDown, { passive: false });
+    node.addEventListener('mousemove',  stableMove, { passive: false });
+    node.addEventListener('mouseup',    stableUp,   { passive: false });
+    node.addEventListener('touchstart', stableDown, { passive: false });
+    node.addEventListener('touchmove',  stableMove, { passive: false });
+    node.addEventListener('touchend',   stableUp,   { passive: false });
+    node.addEventListener('gesturestart',  handleGestureStart, { passive: false });
+    node.addEventListener('gesturechange', handleGestureChange,{ passive: false });
+    node.addEventListener('gestureend',    stableUp,           { passive: false });
+  }, [stableDown, stableMove, stableUp, handleGestureStart, handleGestureChange]);
 
   // ── PDF rendering ──
   // ── PDF rendering ──
