@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, LineCapStyle } from 'pdf-lib';
+import { PDFDocument, rgb, LineCapStyle, StandardFonts } from 'pdf-lib';
 
 const parseColor = (colorStr) => {
   if (!colorStr) return { r: 1, g: 1, b: 1 }; // Default white
@@ -28,6 +28,10 @@ export const exportPdf = async (originalFile, allPagesLayersData) => {
   const originalArrayBuffer = await originalFile.arrayBuffer();
   const pdfDoc = await PDFDocument.load(originalArrayBuffer);
   
+  // Embed standard fonts for text matching
+  const helveticaFont  = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+
   const pages = pdfDoc.getPages();
 
   for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
@@ -53,10 +57,13 @@ export const exportPdf = async (originalFile, allPagesLayersData) => {
         });
       } else if (obj.type === 'text') {
         const { r, g, b } = parseColor(obj.color);
+        const fontToUse = (obj.font === 'serif') ? timesRomanFont : helveticaFont;
+        
         page.drawText(obj.text || '', {
           x: obj.left * scaleRatioX,
-          y: height - (obj.top * scaleRatioY), // Text baseline/origin adjustment
+          y: height - (obj.top * scaleRatioY),
           size: (obj.fontSize || 18) * scaleRatioY,
+          font: fontToUse,
           color: rgb(r, g, b),
         });
       } else if (obj.type === 'image' && obj.src) {

@@ -660,6 +660,23 @@ export default function App() {
       h: selRect.h,
       color: fillColor 
     };
+
+    // Smart Text Color Auto-detection
+    let textCol = '#000000';
+    try {
+      const gctx = srcCanvas.getContext('2d', { willReadFrequently: true });
+      const data = gctx.getImageData(x, y, w, h).data;
+      let minB = 765, bestC = [0,0,0];
+      for (let i=0; i<data.length; i+=4) {
+        const b = data[i]+data[i+1]+data[i+2];
+        if (b < minB && b > 20) { // Avoid pure black noise, find real ink
+          minB = b; bestC = [data[i], data[i+1], data[i+2]];
+        }
+      }
+      textCol = `rgb(${bestC[0]},${bestC[1]},${bestC[2]})`;
+      setBrushColor(textCol); // Tự động ghi nhớ màu mực chữ vừa vá
+    } catch(e){}
+    maskLayer.detectedTextColor = textCol;
     
     layersRef.current = [...layersRef.current, maskLayer];
     marqueeRef.current = null;
@@ -753,6 +770,7 @@ export default function App() {
           points: l.points || null,
           color: l.color || '#000000',
           strokeWidth: l.width || 0,
+          font: l.font || 'sans'
         })),
         viewportWidth:  vpRef.current.w,
         viewportHeight: vpRef.current.h,
@@ -894,6 +912,7 @@ export default function App() {
                       x={l.x} y={l.y} 
                       fontSize={l.fontSize} 
                       fill={l.color}
+                      fontFamily={l.font === 'serif' ? 'serif' : 'sans-serif'}
                       style={{ 
                         userSelect: 'none', 
                         fontWeight: 500, 
@@ -1020,6 +1039,16 @@ export default function App() {
             />
             <button className="icon-btn" onClick={() => updateLayer(l.id, { fontSize: l.fontSize + 2 })}><ZoomIn size={14}/></button>
             <button className="icon-btn" onClick={() => updateLayer(l.id, { fontSize: Math.max(8, l.fontSize - 2) })}><ZoomOut size={14}/></button>
+            <button 
+              className="icon-btn" 
+              style={{ fontFamily: 'serif', fontWeight: 'bold' }} 
+              onClick={() => updateLayer(l.id, { font: 'serif' })}
+            >A</button>
+            <button 
+              className="icon-btn" 
+              style={{ fontFamily: 'sans-serif' }} 
+              onClick={() => updateLayer(l.id, { font: 'sans' })}
+            >A</button>
             <button className="icon-btn" style={{ color: 'red' }} onClick={() => deleteLayer(l.id)}><Trash2 size={14}/></button>
           </div>
         );
