@@ -4,9 +4,10 @@ import { exportPdf } from './services/exportService';
 import {
   Hand, Square, Download, Trash2, Layers, Pencil, Eraser,
   Copy, Scissors, ChevronLeft, ChevronRight, X, FolderOpen, Briefcase, ZoomIn, ZoomOut, ArrowUpToLine, ArrowDownToLine, Lock, Unlock, Undo2, Redo2, Sparkles, Type,
-  Pipette, Palette, Plus, Minus
+  Pipette, Palette, Plus, Minus, LogOut, ShieldAlert, LogIn
 } from 'lucide-react';
 import './index.css';
+import { supabase } from './services/supabaseClient';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function getClientXY(e) {
@@ -65,6 +66,12 @@ export default function App() {
   const [zoom,          setZoom]          = useState(1.0);  // zoom level
   const [brushSize,     setBrushSize]     = useState(5);
   const [brushColor,    setBrushColor]    = useState('#000000');
+  
+  // Auth State
+  const [session,       setSession]       = useState(null);
+  const [isWhitelisted, setIsWhitelisted] = useState(false);
+  const [authLoading,   setAuthLoading]   = useState(true);
+
   const zoomRef         = useRef(1.0);
 
   // Refs
@@ -100,6 +107,58 @@ export default function App() {
     window.addEventListener('pointerup', handleGlobalUp);
     return () => window.removeEventListener('pointerup', handleGlobalUp);
   }, []);
+
+  // ── Auth & Whitelist Logic ──
+  useEffect(() => {
+    // 1. Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) checkWhitelist(session.user.email);
+      else setAuthLoading(false);
+    });
+
+    // 2. Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) checkWhitelist(session.user.email);
+      else {
+        setIsWhitelisted(false);
+        setAuthLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const checkWhitelist = async (email) => {
+    try {
+      setAuthLoading(true);
+      const { data, error } = await supabase
+        .from('whitelist')
+        .select('email')
+        .eq('email', email)
+        .single();
+      
+      if (data) setIsWhitelisted(true);
+      else setIsWhitelisted(false);
+    } catch (err) {
+      console.error("Whitelist check failed:", err);
+      setIsWhitelisted(false);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    });
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   // ── Redraw overlay canvas (marquee box) ──
   const drawOverlay = useCallback(() => {
