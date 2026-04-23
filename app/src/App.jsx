@@ -205,29 +205,32 @@ export default function App() {
     } else if (curMode === 'eraser') {
       e.preventDefault();
       const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
-      const hitIndex = layersRef.current.findIndex(l => {
-        const margin = Math.max(40, brushSize * 3);
+      const margin = Math.max(40, brushSize * 3);
+      
+      const remainingLayers = layersRef.current.filter(l => {
+        let hit = false;
         if (l.type === 'image' || l.type === 'mask') {
-          return pos.x >= l.x - margin && pos.x <= l.x + l.w + margin && 
-                 pos.y >= l.y - margin && pos.y <= l.y + l.h + margin;
+          hit = pos.x >= l.x - margin && pos.x <= l.x + l.w + margin && 
+                pos.y >= l.y - margin && pos.y <= l.y + l.h + margin;
+        } else if (l.type === 'stroke') {
+          hit = l.points.some(p => Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - p.y, 2)) < (brushSize + 30));
         }
-        if (l.type === 'stroke') {
-          return l.points.some(p => Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - p.y, 2)) < (brushSize + 30));
-        }
-        return false;
+        return !hit;
       });
+
+      const erasedAnything = remainingLayers.length !== layersRef.current.length;
       
       activeStrokeRef.current = { 
         isEraser: true, 
-        erased: hitIndex !== -1, 
+        erased: erasedAnything, 
         points: [pos], 
         size: Math.max(30, brushSize * 2) 
       };
 
-      if (hitIndex !== -1) {
-        layersRef.current = layersRef.current.filter((_, idx) => idx !== hitIndex);
+      if (erasedAnything) {
+        layersRef.current = remainingLayers;
+        saveHistory(); // Save immediately if deleted something
       }
-      // Always render so we see the red circle
       setRenderId(v => v + 1);
     }
   }, [brushColor, brushSize, saveHistory, setRenderId]);
@@ -297,29 +300,36 @@ export default function App() {
       const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
       activeStrokeRef.current.points = [pos];
       
-      const hitIndex = layersRef.current.findIndex(l => {
-        const margin = Math.max(40, brushSize * 3);
+      const margin = Math.max(40, brushSize * 3);
+      const remainingLayers = layersRef.current.filter(l => {
+        let hit = false;
         if (l.type === 'image' || l.type === 'mask') {
-          return pos.x >= l.x - margin && pos.x <= l.x + l.w + margin && 
-                 pos.y >= l.y - margin && pos.y <= l.y + l.h + margin;
+          hit = pos.x >= l.x - margin && pos.x <= l.x + l.w + margin && 
+                pos.y >= l.y - margin && pos.y <= l.y + l.h + margin;
+        } else if (l.type === 'stroke') {
+          hit = l.points.some(p => Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - p.y, 2)) < (brushSize + 30));
         }
-        if (l.type === 'stroke') {
-          return l.points.some(p => Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - p.y, 2)) < (brushSize + 30));
-        }
-        return false;
+        return !hit;
       });
       
-      if (hitIndex !== -1) {
-        layersRef.current = layersRef.current.filter((_, idx) => idx !== hitIndex);
+      if (remainingLayers.length !== layersRef.current.length) {
+        layersRef.current = remainingLayers;
         activeStrokeRef.current.erased = true;
-      }
-      
-      // Update visual circle EVERY move
-      if (!rafRef.current) {
-        rafRef.current = requestAnimationFrame(() => {
-          setRenderId(v => v + 1);
-          rafRef.current = null;
-        });
+        // Throttled render for smoother visual on mobile
+        if (!rafRef.current) {
+          rafRef.current = requestAnimationFrame(() => {
+            setRenderId(v => v + 1);
+            rafRef.current = null;
+          });
+        }
+      } else {
+        // Still need to update circle position even if nothing hit
+        if (!rafRef.current) {
+          rafRef.current = requestAnimationFrame(() => {
+            setRenderId(v => v + 1);
+            rafRef.current = null;
+          });
+        }
       }
       return;
     }
