@@ -117,8 +117,12 @@ export default function App() {
     
     historyRef.current = newHistory;
     historyIndexRef.current = newHistory.length - 1;
+
+    // Persist to page store immediately to prevent sync issues
+    pageStore.current[pageNum - 1] = snapshot;
+    
     setHistoryStamp(Date.now());
-  }, []);
+  }, [pageNum]);
 
   const undo = () => {
     if (historyIndexRef.current <= 0) return;
@@ -791,7 +795,7 @@ export default function App() {
                     />
               )}
               {/* Active stroke preview */}
-              {activeStrokeRef.current && (
+              {activeStrokeRef.current && activeStrokeRef.current.points && (
                 <path
                   d={`M ${activeStrokeRef.current.points.map(p => `${p.x} ${p.y}`).join(' L ')}`}
                   fill="none"
