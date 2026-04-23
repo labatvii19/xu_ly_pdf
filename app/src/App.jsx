@@ -35,6 +35,14 @@ function toPdfCoords(e, canvas, vp, zoom) {
   };
 }
 
+function rgb2hex(rgb) {
+  if (!rgb || !rgb.startsWith('rgb')) return rgb;
+  const match = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+  if (!match) return '#000000';
+  const r = parseInt(match[1]), g = parseInt(match[2]), b = parseInt(match[3]);
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 export default function App() {
   // PDF
@@ -694,8 +702,9 @@ export default function App() {
 
   const updateLayer = (id, props) => {
     layersRef.current = layersRef.current.map(l => l.id === id ? { ...l, ...props } : l);
+    // Force immediate re-render
+    setRenderId(Date.now());
     saveHistory();
-    setRenderId(v => v + 1);
   };
 
   const deleteLayer = (id) => {
@@ -1097,9 +1106,9 @@ export default function App() {
               ><Pipette size={14}/></button>
               <input 
                 type="color" 
-                value={l.color.startsWith('#') ? l.color : '#000000'}
+                value={rgb2hex(l.color)}
                 onChange={(e) => updateLayer(l.id, { color: e.target.value })}
-                style={{ width: 20, height: 20, border: 'none', padding: 0, background: 'none' }}
+                style={{ width: 24, height: 24, border: '1px solid #ccc', borderRadius: '50%', padding: 0, overflow: 'hidden', cursor: 'pointer' }}
               />
             </div>
             
