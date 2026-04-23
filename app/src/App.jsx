@@ -691,7 +691,7 @@ export default function App() {
       )}
 
       {/* SCROLL AREA */}
-      <div className="scroll-area" style={{ touchAction: mode==='marquee' ? 'none' : 'pan-x pan-y' }}>
+      <div className="scroll-area" style={{ touchAction: (mode==='marquee' || mode==='pencil' || mode==='eraser') ? 'none' : 'pan-x pan-y' }}>
         {!pdfFile && (
           <div className="upload-screen">
             <div style={{ fontSize:'56px' }}>📄</div>
