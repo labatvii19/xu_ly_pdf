@@ -1092,12 +1092,29 @@ export default function App() {
                     const gctx = canvas.getContext('2d', { willReadFrequently: true });
                     const sc = canvas.width / vpRef.current.w;
                     
-                    // Lấy tọa độ tâm đoạn chữ trên Canvas
-                    const px = Math.min(canvas.width - 1, Math.max(0, Math.floor(l.x * sc)));
-                    const py = Math.min(canvas.height - 1, Math.max(0, Math.floor((l.y - (l.fontSize/3)) * sc)));
+                    // Quét một vùng 30x30px quanh chữ để tìm mực
+                    const sw = Math.floor(30 * sc);
+                    const sh = Math.floor(30 * sc);
+                    const sx = Math.min(canvas.width - sw, Math.max(0, Math.floor(l.x * sc)));
+                    const sy = Math.min(canvas.height - sh, Math.max(0, Math.floor((l.y - l.fontSize) * sc)));
                     
-                    const pixel = gctx.getImageData(px, py, 1, 1).data;
-                    const newCol = `rgb(${pixel[0]},${pixel[1]},${pixel[2]})`;
+                    const data = gctx.getImageData(sx, sy, sw, sh).data;
+                    let minB = 765, bestC = [0,0,0];
+                    let tr=0, tg=0, tb=0, count=0;
+
+                    for (let i=0; i<data.length; i+=4) {
+                      const r=data[i], g=data[i+1], b=data[i+2];
+                      const brightness = r+g+b;
+                      if (brightness < minB) {
+                        minB = brightness;
+                        bestC = [r,g,b];
+                      }
+                      tr+=r; tg+=g; tb+=b; count++;
+                    }
+                    
+                    // Nếu thấy mực (độ sáng < 650), lấy màu đậm nhất. Nếu không lấy màu trung bình vùng quét.
+                    const finalC = (minB < 650) ? bestC : [Math.round(tr/count), Math.round(tg/count), Math.round(tb/count)];
+                    const newCol = `rgb(${finalC[0]},${finalC[1]},${finalC[2]})`;
                     
                     updateLayer(l.id, { color: newCol });
                     setBrushColor(newCol);
