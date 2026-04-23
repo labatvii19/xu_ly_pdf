@@ -182,9 +182,9 @@ export default function App() {
         y: pos.y,
         text: 'Nhập để sửa...',
         fontSize: 20,
-        color: '#333333',
-        opacity: 0.9,
-        blur: 0.5,
+        color: brushColor || '#333333', // Ưu tiên dùng màu vừa lấy được
+        opacity: 0.75, // Mặc định ở mức giữa cho thật giấy
+        blur: 0.5,    // Mặc định hơi nhòe nhẹ cho giống mực in
         bold: false,
         locked: false
       };
@@ -192,7 +192,6 @@ export default function App() {
       setSelectedId(newLayer.id);
       saveHistory();
       setRenderId(v => v + 1);
-      // Tự động nhảy về Pan để người dùng không gõ nhầm chữ mới
       setMode('pan');
     } else if (curMode === 'pencil') {
       e.preventDefault();
