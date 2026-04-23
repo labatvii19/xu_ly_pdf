@@ -937,6 +937,7 @@ export default function App() {
                   : l.type === 'text'
                   ? <text 
                       key={l.id} 
+                      data-layer-id={l.id}
                       x={l.x} y={l.y} 
                       fontSize={l.fontSize} 
                       fill={l.color}
@@ -1253,12 +1254,22 @@ export default function App() {
                   try {
                     const canvas = bgCanvasRef.current;
                     if (!canvas) return;
-                    const gctx = canvas.getContext('2d', { willReadFrequently: true });
-                    const sc = canvas.width / vpRef.current.w;
                     
-                    const px = Math.floor(l.x * sc);
-                    const py = Math.floor((l.y - (l.fontSize / 3)) * sc);
-                    const data = gctx.getImageData(px - 10, py - 10, 20, 20).data;
+                    const layerEl = document.querySelector(`[data-layer-id="${l.id}"]`);
+                    const canvasRect = canvas.getBoundingClientRect();
+                    const layerRect  = layerEl ? layerEl.getBoundingClientRect() : null;
+                    
+                    if (!canvasRect || !layerRect) return;
+
+                    const scX = canvas.width / canvasRect.width;
+                    const scY = canvas.height / canvasRect.height;
+                    
+                    // Lấy điểm ở giữa đoạn chữ
+                    const px = (layerRect.left + (layerRect.width / 2) - canvasRect.left) * scX;
+                    const py = (layerRect.top + (layerRect.height / 2) - canvasRect.top) * scY;
+
+                    const gctx = canvas.getContext('2d', { willReadFrequently: true });
+                    const data = gctx.getImageData(Math.floor(px - 10), Math.floor(py - 10), 20, 20).data;
                     
                     let minB = 765, bestC = [0,0,0], tr=0, tg=0, tb=0, count=0;
                     for (let i=0; i<data.length; i+=4) {
@@ -1266,7 +1277,7 @@ export default function App() {
                       if (br < minB) { minB = br; bestC = [data[i], data[i+1], data[i+2]]; }
                       tr+=data[i]; tg+=data[i+1]; tb+=data[i+2]; count++;
                     }
-                    const resC = (minB < 650) ? bestC : [Math.round(tr/count), Math.round(tg/count), Math.round(tb/count)];
+                    const resC = (minB < 680) ? bestC : [Math.round(tr/count), Math.round(tg/count), Math.round(tb/count)];
                     updateLayer(l.id, { color: `rgb(${resC[0]},${resC[1]},${resC[2]})` });
                     setBrushColor(`rgb(${resC[0]},${resC[1]},${resC[2]})`);
                   } catch(e) { console.error("Pipette error:", e); }
