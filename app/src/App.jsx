@@ -191,7 +191,8 @@ export default function App() {
       setSelectedId(newLayer.id);
       saveHistory();
       setRenderId(v => v + 1);
-      // Giữ mode text để anh có thể chấm tiếp nhiều chỗ
+      // Tự động nhảy về Pan để người dùng không gõ nhầm chữ mới
+      setMode('pan');
     } else if (curMode === 'pencil') {
       e.preventDefault();
       const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
