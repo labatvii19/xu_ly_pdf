@@ -601,20 +601,26 @@ export default function App() {
       const gctx = srcCanvas.getContext('2d', { willReadFrequently: true });
       const data = gctx.getImageData(x, y, w, h).data;
       
-      // Tính toán màu nền nhạt nhất (loại bỏ màu chữ tối)
-      let r=0, g=0, b=0, count=0;
-      for (let i=0; i<data.length; i+=4) {
-        // Chỉ lấy các pixel sáng (R+G+B > 500) để tìm màu giấy
-        if (data[i] + data[i+1] + data[i+2] > 500) {
-          r += data[i];
-          g += data[i+1];
-          b += data[i+2];
-          count++;
+      const counts = {};
+      let maxCount = 0;
+      let bestColor = [255, 255, 255];
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        // Chỉ xét các vùng rất sáng (giấy nền)
+        if (r + g + b > 600) {
+          // Làm tròn màu để gom nhóm (mọi cụm 5 đơn vị màu coi là 1)
+          const key = `${Math.floor(r/5)*5},${Math.floor(g/5)*5},${Math.floor(b/5)*5}`;
+          counts[key] = (counts[key] || 0) + 1;
+          if (counts[key] > maxCount) {
+            maxCount = counts[key];
+            bestColor = [r, g, b];
+          }
         }
       }
-      if (count > 0) {
-        fillColor = `rgb(${Math.round(r/count)},${Math.round(g/count)},${Math.round(b/count)})`;
-      }
+      fillColor = `rgb(${bestColor[0]},${bestColor[1]},${bestColor[2]})`;
     } catch (err) { console.error("SmartColor error:", err); }
 
     const maskLayer = { 
