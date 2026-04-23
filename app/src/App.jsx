@@ -43,6 +43,17 @@ function rgb2hex(rgb) {
   return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
 
+  useEffect(() => {
+    const handleGlobalUp = () => {
+      if (dragRef.current) {
+        dragRef.current = null;
+        setRenderId(Date.now());
+      }
+    };
+    window.addEventListener('pointerup', handleGlobalUp);
+    return () => window.removeEventListener('pointerup', handleGlobalUp);
+  }, []);
+
 // ────────────────────────────────────────────────────────────────────────────
 export default function App() {
   // PDF
@@ -1032,116 +1043,6 @@ export default function App() {
     )}
       </div>
 
-      {/* TEXT EDITOR FLOATING PILL */}
-      {(() => {
-        const l = layersRef.current.find(x => x.id === selectedId && x.type === 'text');
-        if (!l) return null;
-        
-        // Calculate position in viewport pixels
-        const canvasRect = bgCanvasRef.current?.getBoundingClientRect();
-        if (!canvasRect) return null;
-        
-        const top  = canvasRect.top  + (l.y * zoom) - 60;
-        const left = canvasRect.left + (l.x * zoom);
-
-        return (
-          <div 
-            className="glass-panel text-editor-pill"
-            style={{ 
-              position:'fixed', top, left, 
-              zIndex: 2000, display: 'flex', gap: '8px', padding: '6px 12px',
-              transform: 'translateX(-20%)'
-            }}
-          >
-            <input 
-              type="text" 
-              value={l.text}
-              autoFocus
-              onChange={(e) => updateLayer(l.id, { text: e.target.value })}
-              style={{ 
-                border: 'none', background: 'rgba(0,0,0,0.05)', borderRadius: '4px',
-                padding: '4px 8px', width: '150px', outline: 'none'
-              }}
-            />
-            <div style={{ display:'flex', alignItems:'center', borderLeft:'1px solid #ddd', paddingLeft:8 }}>
-              <button className="icon-btn" onClick={() => updateLayer(l.id, { fontSize: l.fontSize + 1 })}><Plus size={14}/></button>
-              <button className="icon-btn" onClick={() => updateLayer(l.id, { fontSize: Math.max(6, l.fontSize - 1) })}><Minus size={14}/></button>
-            </div>
-
-            <div style={{ display:'flex', alignItems:'center', gap:4, borderLeft:'1px solid #ddd', paddingLeft:8 }}>
-              <button 
-                className={`text-btn ${l.font==='serif' ? 'active' : ''}`} 
-                style={{ fontFamily: 'serif' }}
-                onClick={() => updateLayer(l.id, { font: 'serif' })}
-              >Times</button>
-              <button 
-                className={`text-btn ${l.font==='sans' ? 'active' : ''}`} 
-                style={{ fontFamily: 'sans-serif' }}
-                onClick={() => updateLayer(l.id, { font: 'sans' })}
-              >Arial</button>
-            </div>
-
-            <div style={{ display:'flex', alignItems:'center', gap:4, borderLeft:'1px solid #ddd', paddingLeft:8 }}>
-              <button 
-                className="icon-btn" 
-                style={{ color: l.color }}
-                onClick={() => {
-                  try {
-                    const canvas = bgCanvasRef.current;
-                    if (!canvas) return;
-                    const gctx = canvas.getContext('2d', { willReadFrequently: true });
-                    const sc = canvas.width / vpRef.current.w;
-                    
-                    // Quét một vùng 30x30px quanh chữ để tìm mực
-                    const sw = Math.floor(30 * sc);
-                    const sh = Math.floor(30 * sc);
-                    const sx = Math.min(canvas.width - sw, Math.max(0, Math.floor(l.x * sc)));
-                    const sy = Math.min(canvas.height - sh, Math.max(0, Math.floor((l.y - l.fontSize) * sc)));
-                    
-                    const data = gctx.getImageData(sx, sy, sw, sh).data;
-                    let minB = 765, bestC = [0,0,0];
-                    let tr=0, tg=0, tb=0, count=0;
-
-                    for (let i=0; i<data.length; i+=4) {
-                      const r=data[i], g=data[i+1], b=data[i+2];
-                      const brightness = r+g+b;
-                      if (brightness < minB) {
-                        minB = brightness;
-                        bestC = [r,g,b];
-                      }
-                      tr+=r; tg+=g; tb+=b; count++;
-                    }
-                    
-                    // Nếu thấy mực (độ sáng < 650), lấy màu đậm nhất. Nếu không lấy màu trung bình vùng quét.
-                    const finalC = (minB < 650) ? bestC : [Math.round(tr/count), Math.round(tg/count), Math.round(tb/count)];
-                    const newCol = `rgb(${finalC[0]},${finalC[1]},${finalC[2]})`;
-                    
-                    updateLayer(l.id, { color: newCol });
-                    setBrushColor(newCol);
-                  } catch(e) { console.error("Pipette error:", e); }
-                }}
-              ><Pipette size={14}/></button>
-              <input 
-                type="color" 
-                value={rgb2hex(l.color)}
-                onChange={(e) => updateLayer(l.id, { color: e.target.value })}
-                style={{ width: 24, height: 24, border: '1px solid #ccc', borderRadius: '50%', padding: 0, overflow: 'hidden', cursor: 'pointer' }}
-              />
-            </div>
-            
-            <div style={{ display:'flex', alignItems:'center', gap:4, borderLeft:'1px solid #ddd', paddingLeft:8 }}>
-              <input 
-                type="range" min="0.1" max="1" step="0.05" 
-                value={l.opacity} 
-                onChange={(e) => updateLayer(l.id, { opacity: parseFloat(e.target.value) })}
-                style={{ width: 50 }}
-              />
-            </div>
-
-            <button className="icon-btn" style={{ color: 'red' }} onClick={() => deleteLayer(l.id)}><Trash2 size={14}/></button>
-          </div>
-        );
-      })()}
 
       {/* CONTEXT MENU – fixed to viewport so it never drifts */}
       {contextMenu && (
@@ -1303,6 +1204,82 @@ export default function App() {
           </button>
         </div>
       )}
+      {/* TEXT EDITOR FLOATING PILL - MOVED TO ROOT FOR ROBUSTNESS */}
+      {(() => {
+        const l = layersRef.current.find(x => x.id === selectedId && x.type === 'text');
+        if (!l) return null;
+        
+        const canvasRect = bgCanvasRef.current?.getBoundingClientRect();
+        if (!canvasRect) return null;
+        
+        const top  = canvasRect.top  + (l.y * zoom);
+        const left = canvasRect.left + (l.x * zoom);
+
+        return (
+          <div 
+            className="glass-panel text-editor-pill"
+            onPointerDown={(e) => e.stopPropagation()} 
+            style={{ 
+              position:'fixed', top: top - 50, left, 
+              zIndex: 3000, display: 'flex', gap: '4px', padding: '6px 12px',
+              transform: 'translateX(-20%)',
+              pointerEvents: 'auto'
+            }}
+          >
+            <input 
+              type="text" 
+              value={l.text}
+              autoFocus
+              onChange={(e) => updateLayer(l.id, { text: e.target.value })}
+              style={{ border: 'none', background: 'rgba(0,0,0,0.05)', borderRadius: '4px', padding: '4px 8px', width: '130px', outline: 'none', fontSize: '13px' }}
+            />
+            <div style={{ display:'flex', alignItems:'center', borderLeft:'1px solid #ddd', paddingLeft:4 }}>
+              <button className="icon-btn" onClick={() => updateLayer(l.id, { fontSize: l.fontSize + 1 })}><Plus size={14}/></button>
+              <button className="icon-btn" onClick={() => updateLayer(l.id, { fontSize: Math.max(6, l.fontSize - 1) })}><Minus size={14}/></button>
+            </div>
+
+            <div style={{ display:'flex', alignItems:'center', gap:2, borderLeft:'1px solid #ddd', paddingLeft:4 }}>
+              <button className={`text-btn ${l.font==='serif' ? 'active' : ''}`} style={{ fontFamily: 'serif' }} onClick={() => updateLayer(l.id, { font: 'serif' })}>T</button>
+              <button className={`text-btn ${l.font==='sans' ? 'active' : ''}`} style={{ fontFamily: 'sans-serif' }} onClick={() => updateLayer(l.id, { font: 'sans' })}>A</button>
+            </div>
+
+            <div style={{ display:'flex', alignItems:'center', gap:4, borderLeft:'1px solid #ddd', paddingLeft:4 }}>
+              <button 
+                className="icon-btn" 
+                style={{ color: l.color }}
+                onClick={() => {
+                  try {
+                    const canvas = bgCanvasRef.current;
+                    if (!canvas) return;
+                    const gctx = canvas.getContext('2d', { willReadFrequently: true });
+                    const sc = canvas.width / vpRef.current.w;
+                    
+                    const px = Math.floor(l.x * sc);
+                    const py = Math.floor((l.y - (l.fontSize / 3)) * sc);
+                    const data = gctx.getImageData(px - 10, py - 10, 20, 20).data;
+                    
+                    let minB = 765, bestC = [0,0,0], tr=0, tg=0, tb=0, count=0;
+                    for (let i=0; i<data.length; i+=4) {
+                      const br = data[i] + data[i+1] + data[i+2];
+                      if (br < minB) { minB = br; bestC = [data[i], data[i+1], data[i+2]]; }
+                      tr+=data[i]; tg+=data[i+1]; tb+=data[i+2]; count++;
+                    }
+                    const resC = (minB < 650) ? bestC : [Math.round(tr/count), Math.round(tg/count), Math.round(tb/count)];
+                    updateLayer(l.id, { color: `rgb(${resC[0]},${resC[1]},${resC[2]})` });
+                    setBrushColor(`rgb(${resC[0]},${resC[1]},${resC[2]})`);
+                  } catch(e) { console.error("Pipette error:", e); }
+                }}
+              ><Pipette size={14}/></button>
+              <input type="color" value={rgb2hex(l.color)} onChange={(e) => updateLayer(l.id, { color: e.target.value })} style={{ width: 20, height: 20, cursor: 'pointer', border:'none', padding:0 }} />
+            </div>
+            
+            <div style={{ display:'flex', alignItems:'center', gap:4, borderLeft:'1px solid #ddd', paddingLeft:4 }}>
+              <input type="range" min="0.1" max="1" step="0.01" value={l.opacity} onChange={(e) => updateLayer(l.id, { opacity: parseFloat(e.target.value) })} style={{ width: 40 }} />
+            </div>
+            <button className="icon-btn" style={{ color: 'red' }} onClick={() => deleteLayer(l.id)}><Trash2 size={14}/></button>
+          </div>
+        );
+      })()}
     </div>
   );
 }
