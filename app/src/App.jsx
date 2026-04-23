@@ -1077,9 +1077,24 @@ export default function App() {
                 className="icon-btn" 
                 style={{ color: l.color }}
                 onClick={() => {
-                  // Trigger smart color detection manually
-                  // We'll reuse the sampled color from brushColor
-                  updateLayer(l.id, { color: brushColor });
+                  try {
+                    const canvas = bgCanvasRef.current;
+                    const gctx = canvas.getContext('2d', { willReadFrequently: true });
+                    // Soi màu trong vùng 40x40px quanh chữ
+                    const data = gctx.getImageData(l.x, l.y - 20, 40, 40).data;
+                    let minB = 765, bestC = [0,0,0];
+                    for (let i=0; i<data.length; i+=4) {
+                      const b = data[i]+data[i+1]+data[i+2];
+                      if (b < minB && b > 30) { 
+                        minB = b; bestC = [data[i], data[i+1], data[i+2]];
+                      }
+                    }
+                    if (minB < 700) {
+                      const newCol = `rgb(${bestC[0]},${bestC[1]},${bestC[2]})`;
+                      updateLayer(l.id, { color: newCol });
+                      setBrushColor(newCol);
+                    }
+                  } catch(e) { console.error("Pipette error:", e); }
                 }}
               ><Pipette size={14}/></button>
               <input 
