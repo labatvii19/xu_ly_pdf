@@ -198,11 +198,13 @@ export default function App() {
       e.preventDefault();
       const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
       const hitIndex = layersRef.current.findIndex(l => {
+        const margin = Math.max(10, brushSize / 2);
         if (l.type === 'image' || l.type === 'mask') {
-          return pos.x >= l.x && pos.x <= l.x + l.w && pos.y >= l.y && pos.y <= l.y + l.h;
+          return pos.x >= l.x - margin && pos.x <= l.x + l.w + margin && 
+                 pos.y >= l.y - margin && pos.y <= l.y + l.h + margin;
         }
         if (l.type === 'stroke') {
-          return l.points.some(p => Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - p.y, 2)) < brushSize);
+          return l.points.some(p => Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - p.y, 2)) < (brushSize + 5));
         }
         return false;
       });
