@@ -206,7 +206,7 @@ export default function App() {
       e.preventDefault();
       const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
       const hitIndex = layersRef.current.findIndex(l => {
-        const margin = Math.max(40, brushSize * 3); // Siêu nhạy
+        const margin = Math.max(40, brushSize * 3);
         if (l.type === 'image' || l.type === 'mask') {
           return pos.x >= l.x - margin && pos.x <= l.x + l.w + margin && 
                  pos.y >= l.y - margin && pos.y <= l.y + l.h + margin;
@@ -216,14 +216,19 @@ export default function App() {
         }
         return false;
       });
+      
+      activeStrokeRef.current = { 
+        isEraser: true, 
+        erased: hitIndex !== -1, 
+        points: [pos], 
+        size: Math.max(30, brushSize * 2) 
+      };
+
       if (hitIndex !== -1) {
-        const newLayers = layersRef.current.filter((_, idx) => idx !== hitIndex);
-        layersRef.current = newLayers;
-        setRenderId(v => v + 1);
-        activeStrokeRef.current = { isEraser: true, erased: true, points: [pos], size: Math.max(30, brushSize * 2) };
-      } else {
-        activeStrokeRef.current = { isEraser: true, erased: false, points: [pos], size: Math.max(30, brushSize * 2) };
+        layersRef.current = layersRef.current.filter((_, idx) => idx !== hitIndex);
       }
+      // Always render so we see the red circle
+      setRenderId(v => v + 1);
     }
   }, [brushColor, brushSize, saveHistory, setRenderId]);
 
@@ -290,7 +295,7 @@ export default function App() {
       const canvas = bgCanvasRef.current;
       if (!canvas) return;
       const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
-      activeStrokeRef.current.points = [pos]; // Update for visual circle
+      activeStrokeRef.current.points = [pos];
       
       const hitIndex = layersRef.current.findIndex(l => {
         const margin = Math.max(40, brushSize * 3);
@@ -303,11 +308,18 @@ export default function App() {
         }
         return false;
       });
+      
       if (hitIndex !== -1) {
-        const newLayers = layersRef.current.filter((_, idx) => idx !== hitIndex);
-        layersRef.current = newLayers;
-        setRenderId(v => v + 1);
+        layersRef.current = layersRef.current.filter((_, idx) => idx !== hitIndex);
         activeStrokeRef.current.erased = true;
+      }
+      
+      // Update visual circle EVERY move
+      if (!rafRef.current) {
+        rafRef.current = requestAnimationFrame(() => {
+          setRenderId(v => v + 1);
+          rafRef.current = null;
+        });
       }
       return;
     }
