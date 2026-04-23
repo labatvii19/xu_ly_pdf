@@ -160,7 +160,7 @@ export default function App() {
       }
 
       // Draw new marquee
-      marqueeRef.current = { x: pos.x, y: pos.y, w: 0, h: 0, x0: pos.x, y0: pos.y };
+      marqueeRef.current = { x: pos.x, y: pos.y, w: 0, h: 0, x0: pos.x, y0: pos.y, isDrawing: true };
       setContextMenu(null);
       setSelRect(null);
     } else if (curMode === 'pencil') {
@@ -243,7 +243,7 @@ export default function App() {
         return;
       }
 
-      if (marqueeRef.current) {
+      if (marqueeRef.current && marqueeRef.current.isDrawing) {
         const m   = marqueeRef.current;
         m.x = Math.min(pos.x, m.x0);
         m.y = Math.min(pos.y, m.y0);
@@ -329,6 +329,9 @@ export default function App() {
         return;
       }
       
+      if (marqueeRef.current) {
+        marqueeRef.current.isDrawing = false;
+      }
       dragRef.current = null; // Always clear drag on up for marquee
       e.preventDefault();
       const m = marqueeRef.current;
