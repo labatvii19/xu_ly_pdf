@@ -43,16 +43,6 @@ function rgb2hex(rgb) {
   return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
 
-  useEffect(() => {
-    const handleGlobalUp = () => {
-      if (dragRef.current) {
-        dragRef.current = null;
-        setRenderId(Date.now());
-      }
-    };
-    window.addEventListener('pointerup', handleGlobalUp);
-    return () => window.removeEventListener('pointerup', handleGlobalUp);
-  }, []);
 
 // ────────────────────────────────────────────────────────────────────────────
 export default function App() {
@@ -98,6 +88,18 @@ export default function App() {
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+
+  // Global listener for pointerup to ensure drag cleanup
+  useEffect(() => {
+    const handleGlobalUp = () => {
+      if (dragRef.current) {
+        dragRef.current = null;
+        setRenderId(Date.now());
+      }
+    };
+    window.addEventListener('pointerup', handleGlobalUp);
+    return () => window.removeEventListener('pointerup', handleGlobalUp);
+  }, []);
 
   // ── Redraw overlay canvas (marquee box) ──
   const drawOverlay = useCallback(() => {
