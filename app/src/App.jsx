@@ -3,7 +3,7 @@ import { loadPdf, renderPageToCanvas } from './services/pdfService';
 import { exportPdf } from './services/exportService';
 import {
   Hand, Square, Download, Trash2, Layers, Pencil, Eraser,
-  Copy, Scissors, ChevronLeft, ChevronRight, X, FolderOpen, Briefcase, ZoomIn, ZoomOut, ArrowUpToLine, ArrowDownToLine, Lock, Unlock, Undo2, Redo2
+  Copy, Scissors, ChevronLeft, ChevronRight, X, FolderOpen, Briefcase, ZoomIn, ZoomOut, ArrowUpToLine, ArrowDownToLine, Lock, Unlock, Undo2, Redo2, Sparkles
 } from 'lucide-react';
 import './index.css';
 
@@ -536,9 +536,6 @@ export default function App() {
     if (!selRect || !bgCanvasRef.current) return;
     const srcCanvas = bgCanvasRef.current;
 
-    // Tạo snapshot pixel data ĐỒNG BỘ ngay lập tức trước mọi thứ khác
-    // Đảm bảo dù sau này canvas có bị re-render thì data cũng đã an toàn
-    // Ánh xạ tọa độ 1.0x sang pixel thực tế của Canvas (scale 2.5)
     const scaleFactorX = srcCanvas.width  / vpRef.current.w;
     const scaleFactorY = srcCanvas.height / vpRef.current.h;
 
@@ -550,20 +547,17 @@ export default function App() {
     const h  = y1 - y0;
     if (w <= 0 || h <= 0) return;
 
-    // ✔ Lấy pixel data SYNCHRONOUSLY
     const pixelData = srcCanvas.getContext('2d').getImageData(x0, y0, w, h);
-
-    // Tạo canvas tạm để tạo Blob
     const tmp = document.createElement('canvas');
     tmp.width = w; tmp.height = h;
     tmp.getContext('2d').putImageData(pixelData, 0, 0);
 
-    // Quy đổi ngược lại tọa độ PDF Points để lưu layer
     const savedAction = action;
     const savedLX = selRect.x;
     const savedLY = selRect.y;
     const savedLW = selRect.w;
     const savedLH = selRect.h;
+    
     marqueeRef.current = null;
     const oc = ovCanvasRef.current;
     if (oc) oc.getContext('2d').clearRect(0, 0, oc.width, oc.height);
@@ -572,23 +566,75 @@ export default function App() {
     setSelectedId(null);
     setMode('pan');
 
-    // Async phần: tạo Blob và URL (không nhạy cảm với render mới nữa)
     tmp.toBlob((blob) => {
       if (!blob) return;
       const imgUrl = URL.createObjectURL(blob);
       const newImg = { id: Date.now(), type: 'image', x: savedLX, y: savedLY, w: savedLW, h: savedLH, dataUrl: imgUrl };
 
       if (savedAction === 'cut') {
-        const maskLayer = { id: Date.now() + 1, type: 'mask', x: savedLX, y: savedLY, w: savedLW, h: savedLH };
+        const maskLayer = { id: Date.now() + 1, type: 'mask', x: savedLX, y: savedLY, w: savedLW, h: savedLH, color: '#ffffff' };
         layersRef.current = [...layersRef.current, maskLayer, newImg];
       } else {
         layersRef.current = [...layersRef.current, newImg];
       }
       const clipboardItem = { id: Date.now() + 2, w: savedLW, h: savedLH, dataUrl: imgUrl };
       setClipBin(prev => [...prev, clipboardItem]);
-      saveHistory(); // SAVE after cut/copy creates layers
+      saveHistory();
       setRenderId(v => v + 1);
     }, 'image/png');
+  };
+
+  const executeMask = () => {
+    if (!selRect || !bgCanvasRef.current) return;
+    const srcCanvas = bgCanvasRef.current;
+    
+    // Thuật toán "Mắt thần": Lấy màu giấy thực tế của PDF
+    const scaleFactorX = srcCanvas.width  / vpRef.current.w;
+    const scaleFactorY = srcCanvas.height / vpRef.current.h;
+    const x = Math.max(0, Math.floor(selRect.x * scaleFactorX));
+    const y = Math.max(0, Math.floor(selRect.y * scaleFactorY));
+    const w = Math.max(1, Math.floor(selRect.w * scaleFactorX));
+    const h = Math.max(1, Math.floor(selRect.h * scaleFactorY));
+
+    let fillColor = '#ffffff';
+    try {
+      const gctx = srcCanvas.getContext('2d', { willReadFrequently: true });
+      const data = gctx.getImageData(x, y, w, h).data;
+      
+      // Tính toán màu nền nhạt nhất (loại bỏ màu chữ tối)
+      let r=0, g=0, b=0, count=0;
+      for (let i=0; i<data.length; i+=4) {
+        // Chỉ lấy các pixel sáng (R+G+B > 500) để tìm màu giấy
+        if (data[i] + data[i+1] + data[i+2] > 500) {
+          r += data[i];
+          g += data[i+1];
+          b += data[i+2];
+          count++;
+        }
+      }
+      if (count > 0) {
+        fillColor = `rgb(${Math.round(r/count)},${Math.round(g/count)},${Math.round(b/count)})`;
+      }
+    } catch (err) { console.error("SmartColor error:", err); }
+
+    const maskLayer = { 
+      id: Date.now(), 
+      type: 'mask', 
+      x: selRect.x, 
+      y: selRect.y, 
+      w: selRect.w, 
+      h: selRect.h,
+      color: fillColor 
+    };
+    
+    layersRef.current = [...layersRef.current, maskLayer];
+    marqueeRef.current = null;
+    const oc = ovCanvasRef.current;
+    if (oc) oc.getContext('2d').clearRect(0, 0, oc.width, oc.height);
+    setSelRect(null);
+    setContextMenu(null);
+    saveHistory();
+    setRenderId(v => v + 1);
   };
 
   const deleteLayer = (id) => {
@@ -801,7 +847,7 @@ export default function App() {
             >
               {layersRef.current.map(l =>
                 l.type === 'mask'
-                  ? <rect key={l.id} x={l.x} y={l.y} width={l.w} height={l.h} fill="white"/>
+                  ? <rect key={l.id} x={l.x} y={l.y} width={l.w} height={l.h} fill={l.color || 'white'}/>
                   : l.type === 'image'
 ? <image key={l.id} href={l.dataUrl} x={l.x} y={l.y} width={l.w} height={l.h}
                       style={{ filter: selectedId===l.id ? 'drop-shadow(0 0 8px rgba(0,122,255,0.7))' : 'none' }}
@@ -894,6 +940,13 @@ export default function App() {
         >
           <button className="ctx-btn" onClick={() => executeCutCopy('copy')}><Copy size={15}/> Copy</button>
           <button className="ctx-btn ctx-cut" onClick={() => executeCutCopy('cut')}><Scissors size={15}/> Cut</button>
+          <button 
+            className="ctx-btn" 
+            style={{ color: '#007AFF', fontWeight: 600 }} 
+            onClick={executeMask}
+          >
+            <Sparkles size={15}/> Vá thông minh
+          </button>
           <button className="ctx-btn" onClick={() => {
             marqueeRef.current=null; setSelRect(null); setContextMenu(null); drawOverlay();
           }}><X size={14}/></button>

@@ -1,10 +1,27 @@
 import { PDFDocument, rgb, LineCapStyle } from 'pdf-lib';
 
-const hexToRgb = (hex) => {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-  return { r, g, b };
+const parseColor = (colorStr) => {
+  if (!colorStr) return { r: 1, g: 1, b: 1 }; // Default white
+  
+  if (colorStr.startsWith('#')) {
+    const r = parseInt(colorStr.slice(1, 3), 16) / 255;
+    const g = parseInt(colorStr.slice(3, 5), 16) / 255;
+    const b = parseInt(colorStr.slice(5, 7), 16) / 255;
+    return { r, g, b };
+  }
+  
+  if (colorStr.startsWith('rgb')) {
+    const parts = colorStr.match(/\d+/g);
+    if (parts && parts.length >= 3) {
+      return {
+        r: parseInt(parts[0]) / 255,
+        g: parseInt(parts[1]) / 255,
+        b: parseInt(parts[2]) / 255
+      };
+    }
+  }
+  
+  return { r: 1, g: 1, b: 1 };
 };
 
 export const exportPdf = async (originalFile, allPagesLayersData) => {
@@ -25,13 +42,14 @@ export const exportPdf = async (originalFile, allPagesLayersData) => {
 
     for (const obj of pageData.objects) {
       if (obj.type === 'mask') {
+        const { r, g, b } = parseColor(obj.fill);
         // Draw a rectangle over the target area to 'cut' it out visually
         page.drawRectangle({
           x: obj.left * scaleRatioX,
           y: height - ((obj.top + obj.height) * scaleRatioY),
           width: obj.width * scaleRatioX,
           height: obj.height * scaleRatioY,
-          color: rgb(1, 1, 1) // White rect
+          color: rgb(r, g, b)
         });
       } else if (obj.type === 'image' && obj.src) {
         // Embed and draw image (the copied text snippet)
@@ -57,7 +75,7 @@ export const exportPdf = async (originalFile, allPagesLayersData) => {
           });
         }
       } else if (obj.type === 'stroke' && obj.points && obj.points.length > 1) {
-        const { r, g, b } = hexToRgb(obj.color);
+        const { r, g, b } = parseColor(obj.color);
         for (let i = 0; i < obj.points.length - 1; i++) {
           const p1 = obj.points[i];
           const p2 = obj.points[i+1];
