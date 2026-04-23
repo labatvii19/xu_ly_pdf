@@ -325,9 +325,11 @@ export default function App() {
       if (dragRef.current && dragRef.current.type === 'marquee') {
         dragRef.current = null;
       } else if (!marqueeRef.current) {
+        dragRef.current = null;
         return;
       }
       
+      dragRef.current = null; // Always clear drag on up for marquee
       e.preventDefault();
       const m = marqueeRef.current;
       if (m.w > 10 && m.h > 10) {
@@ -366,14 +368,15 @@ export default function App() {
         saveHistory();
         setRenderId(v => v + 1);
       }
-      activeStrokeRef.current = null;
-      return;
     }
+
     activeStrokeRef.current = null;
+
     // Only mark layer as selected if it was a tap (no movement)
     if (dragRef.current && !dragRef.current.hasMoved) {
       setSelectedId(dragRef.current.id);
     }
+
     if (dragRef.current && dragRef.current.hasMoved) {
       saveHistory();
     }
