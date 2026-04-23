@@ -206,24 +206,23 @@ export default function App() {
       e.preventDefault();
       const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
       const hitIndex = layersRef.current.findIndex(l => {
-        const margin = Math.max(30, brushSize * 2);
+        const margin = Math.max(40, brushSize * 3); // Siêu nhạy
         if (l.type === 'image' || l.type === 'mask') {
           return pos.x >= l.x - margin && pos.x <= l.x + l.w + margin && 
                  pos.y >= l.y - margin && pos.y <= l.y + l.h + margin;
         }
         if (l.type === 'stroke') {
-          return l.points.some(p => Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - p.y, 2)) < (brushSize + 25));
+          return l.points.some(p => Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - p.y, 2)) < (brushSize + 30));
         }
         return false;
       });
       if (hitIndex !== -1) {
-        const newLayers = [...layersRef.current];
-        newLayers.splice(hitIndex, 1);
+        const newLayers = layersRef.current.filter((_, idx) => idx !== hitIndex);
         layersRef.current = newLayers;
         setRenderId(v => v + 1);
-        activeStrokeRef.current = { isEraser: true, erased: true };
+        activeStrokeRef.current = { isEraser: true, erased: true, points: [pos], size: Math.max(30, brushSize * 2) };
       } else {
-        activeStrokeRef.current = { isEraser: true, erased: false };
+        activeStrokeRef.current = { isEraser: true, erased: false, points: [pos], size: Math.max(30, brushSize * 2) };
       }
     }
   }, [brushColor, brushSize, saveHistory, setRenderId]);
@@ -291,20 +290,21 @@ export default function App() {
       const canvas = bgCanvasRef.current;
       if (!canvas) return;
       const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
+      activeStrokeRef.current.points = [pos]; // Update for visual circle
+      
       const hitIndex = layersRef.current.findIndex(l => {
-        const margin = Math.max(30, brushSize * 2);
+        const margin = Math.max(40, brushSize * 3);
         if (l.type === 'image' || l.type === 'mask') {
           return pos.x >= l.x - margin && pos.x <= l.x + l.w + margin && 
                  pos.y >= l.y - margin && pos.y <= l.y + l.h + margin;
         }
         if (l.type === 'stroke') {
-          return l.points.some(p => Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - p.y, 2)) < (brushSize + 25));
+          return l.points.some(p => Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - p.y, 2)) < (brushSize + 30));
         }
         return false;
       });
       if (hitIndex !== -1) {
-        const newLayers = [...layersRef.current];
-        newLayers.splice(hitIndex, 1);
+        const newLayers = layersRef.current.filter((_, idx) => idx !== hitIndex);
         layersRef.current = newLayers;
         setRenderId(v => v + 1);
         activeStrokeRef.current.erased = true;
@@ -794,16 +794,25 @@ export default function App() {
                       strokeLinejoin="round"
                     />
               )}
-              {/* Active stroke preview */}
+              {/* Active stroke or Eraser preview */}
               {activeStrokeRef.current && activeStrokeRef.current.points && (
-                <path
-                  d={`M ${activeStrokeRef.current.points.map(p => `${p.x} ${p.y}`).join(' L ')}`}
-                  fill="none"
-                  stroke={activeStrokeRef.current.color}
-                  strokeWidth={activeStrokeRef.current.size}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                activeStrokeRef.current.isEraser
+                  ? <circle 
+                      cx={activeStrokeRef.current.points[0].x} 
+                      cy={activeStrokeRef.current.points[0].y} 
+                      r={activeStrokeRef.current.size / 2} 
+                      fill="rgba(255, 0, 0, 0.3)" 
+                      stroke="red" 
+                      strokeWidth="1"
+                    />
+                  : <path
+                      d={`M ${activeStrokeRef.current.points.map(p => `${p.x} ${p.y}`).join(' L ')}`}
+                      fill="none"
+                      stroke={activeStrokeRef.current.color}
+                      strokeWidth={activeStrokeRef.current.size}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
               )}
               {/* Selected layer border */}
               {(() => {
