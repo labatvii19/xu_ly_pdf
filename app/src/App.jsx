@@ -202,7 +202,6 @@ export default function App() {
       e.preventDefault();
       const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
       const hitIndex = layersRef.current.findIndex(l => {
-        // Tăng bán kính nhạy lên 30 để dễ xóa trên mobile
         const margin = Math.max(30, brushSize * 2);
         if (l.type === 'image' || l.type === 'mask') {
           return pos.x >= l.x - margin && pos.x <= l.x + l.w + margin && 
@@ -214,11 +213,14 @@ export default function App() {
         return false;
       });
       if (hitIndex !== -1) {
-        layersRef.current.splice(hitIndex, 1);
-        saveHistory();
+        const newLayers = [...layersRef.current];
+        newLayers.splice(hitIndex, 1);
+        layersRef.current = newLayers;
         setRenderId(v => v + 1);
+        activeStrokeRef.current = { isEraser: true, erased: true };
+      } else {
+        activeStrokeRef.current = { isEraser: true, erased: false };
       }
-      activeStrokeRef.current = { isEraser: true };
     }
   }, [brushColor, brushSize, saveHistory, setRenderId]);
 
@@ -286,7 +288,6 @@ export default function App() {
       if (!canvas) return;
       const pos = toPdfCoords(e, canvas, vpRef.current, zoomRef.current);
       const hitIndex = layersRef.current.findIndex(l => {
-        // Tăng bán kính nhạy lên 30 tương đương handleDown để xóa mượt trên mobile
         const margin = Math.max(30, brushSize * 2);
         if (l.type === 'image' || l.type === 'mask') {
           return pos.x >= l.x - margin && pos.x <= l.x + l.w + margin && 
@@ -298,9 +299,11 @@ export default function App() {
         return false;
       });
       if (hitIndex !== -1) {
-        layersRef.current.splice(hitIndex, 1);
-        saveHistory();
+        const newLayers = [...layersRef.current];
+        newLayers.splice(hitIndex, 1);
+        layersRef.current = newLayers;
         setRenderId(v => v + 1);
+        activeStrokeRef.current.erased = true;
       }
       return;
     }
@@ -369,7 +372,7 @@ export default function App() {
     if (modeRef.current === 'pencil' && activeStrokeRef.current) {
       e.preventDefault();
       const s = activeStrokeRef.current;
-      if (s.points.length > 1) {
+      if (s.points && s.points.length > 1) {
         const newLayer = {
           id: Date.now(),
           type: 'stroke',
@@ -381,6 +384,10 @@ export default function App() {
         saveHistory();
         setRenderId(v => v + 1);
       }
+    }
+    
+    if (modeRef.current === 'eraser' && activeStrokeRef.current?.erased) {
+      saveHistory();
     }
 
     activeStrokeRef.current = null;
