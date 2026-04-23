@@ -315,7 +315,7 @@ export default function App() {
       }
     }
     // Không có dragRef → không preventDefault, scroll tự hoạt động
-  }, [drawOverlay, setRenderId]);
+  }, [brushSize, saveHistory, drawOverlay, setRenderId]);
 
   const handleUp = useCallback((e) => {
     if (!e.touches || e.touches.length < 2) {
