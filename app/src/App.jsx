@@ -3,7 +3,8 @@ import { loadPdf, renderPageToCanvas } from './services/pdfService';
 import { exportPdf } from './services/exportService';
 import {
   Hand, Square, Download, Trash2, Layers, Pencil, Eraser,
-  Copy, Scissors, ChevronLeft, ChevronRight, X, FolderOpen, Briefcase, ZoomIn, ZoomOut, ArrowUpToLine, ArrowDownToLine, Lock, Unlock, Undo2, Redo2, Sparkles, Type
+  Copy, Scissors, ChevronLeft, ChevronRight, X, FolderOpen, Briefcase, ZoomIn, ZoomOut, ArrowUpToLine, ArrowDownToLine, Lock, Unlock, Undo2, Redo2, Sparkles, Type,
+  Pipette, Palette, Plus, Minus
 } from 'lucide-react';
 import './index.css';
 
@@ -1054,31 +1055,48 @@ export default function App() {
                 padding: '4px 8px', width: '150px', outline: 'none'
               }}
             />
-            <button className="icon-btn" onClick={() => updateLayer(l.id, { fontSize: l.fontSize + 2 })}><ZoomIn size={14}/></button>
-            <button className="icon-btn" onClick={() => updateLayer(l.id, { fontSize: Math.max(8, l.fontSize - 2) })}><ZoomOut size={14}/></button>
-            <button 
-              className="icon-btn" 
-              style={{ fontFamily: 'serif', fontWeight: 'bold' }} 
-              onClick={() => updateLayer(l.id, { font: 'serif' })}
-            >A</button>
-            <button 
-              className="icon-btn" 
-              style={{ fontFamily: 'sans-serif' }} 
-              onClick={() => updateLayer(l.id, { font: 'sans' })}
-            >A</button>
-            <button 
-              className="icon-btn" 
-              style={{ fontWeight: l.bold ? '900' : '400' }} 
-              onClick={() => updateLayer(l.id, { bold: !l.bold })}
-            >B</button>
+            <div style={{ display:'flex', alignItems:'center', borderLeft:'1px solid #ddd', paddingLeft:8 }}>
+              <button className="icon-btn" onClick={() => updateLayer(l.id, { fontSize: l.fontSize + 1 })}><Plus size={14}/></button>
+              <button className="icon-btn" onClick={() => updateLayer(l.id, { fontSize: Math.max(6, l.fontSize - 1) })}><Minus size={14}/></button>
+            </div>
+
+            <div style={{ display:'flex', alignItems:'center', gap:4, borderLeft:'1px solid #ddd', paddingLeft:8 }}>
+              <button 
+                className={`text-btn ${l.font==='serif' ? 'active' : ''}`} 
+                style={{ fontFamily: 'serif' }}
+                onClick={() => updateLayer(l.id, { font: 'serif' })}
+              >Times</button>
+              <button 
+                className={`text-btn ${l.font==='sans' ? 'active' : ''}`} 
+                style={{ fontFamily: 'sans-serif' }}
+                onClick={() => updateLayer(l.id, { font: 'sans' })}
+              >Arial</button>
+            </div>
+
+            <div style={{ display:'flex', alignItems:'center', gap:4, borderLeft:'1px solid #ddd', paddingLeft:8 }}>
+              <button 
+                className="icon-btn" 
+                style={{ color: l.color }}
+                onClick={() => {
+                  // Trigger smart color detection manually
+                  // We'll reuse the sampled color from brushColor
+                  updateLayer(l.id, { color: brushColor });
+                }}
+              ><Pipette size={14}/></button>
+              <input 
+                type="color" 
+                value={l.color.startsWith('#') ? l.color : '#000000'}
+                onChange={(e) => updateLayer(l.id, { color: e.target.value })}
+                style={{ width: 20, height: 20, border: 'none', padding: 0, background: 'none' }}
+              />
+            </div>
             
             <div style={{ display:'flex', alignItems:'center', gap:4, borderLeft:'1px solid #ddd', paddingLeft:8 }}>
-              <span style={{ fontSize:10 }}>Mờ</span>
               <input 
                 type="range" min="0.1" max="1" step="0.05" 
                 value={l.opacity} 
                 onChange={(e) => updateLayer(l.id, { opacity: parseFloat(e.target.value) })}
-                style={{ width: 60 }}
+                style={{ width: 50 }}
               />
             </div>
 
