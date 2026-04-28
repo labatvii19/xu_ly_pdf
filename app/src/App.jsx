@@ -1197,7 +1197,7 @@ export default function App() {
       {/* BRUSH SETTINGS (SUB-TOOLBAR) */}
       {pdfFile && mode === 'pencil' && (
         <div className="sub-pill glass-panel" style={{
-          position: 'fixed', bottom: '86px', left: '50%', transform: 'translateX(-50%)',
+          position: 'fixed', bottom: 'calc(138px + env(safe-area-inset-bottom))', left: '50%', transform: 'translateX(-50%)',
           display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', zIndex: 1000
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
