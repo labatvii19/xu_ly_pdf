@@ -495,8 +495,12 @@ export default function App() {
         const r      = canvas.getBoundingClientRect();
         // Since we use CSS transform scale, 1 pixel in screen = 1/zoom units in base coordinates
         const invZoom = 1 / zoomRef.current;
+        // Cố định vị trí context menu và giới hạn để không bị tràn lề trái/phải
+        const menuX = r.left + (m.x + m.w / 2) * zoomRef.current;
+        const safeX = Math.max(100, Math.min(window.innerWidth - 100, menuX));
+        
         setContextMenu({
-          x: r.left + (m.x + m.w / 2) * zoomRef.current,
+          x: safeX,
           y: r.top  + (m.y + m.h) * zoomRef.current + 14,
         });
       } else {
