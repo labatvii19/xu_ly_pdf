@@ -13,9 +13,32 @@ const LoginGate = ({ onLogin }) => {
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (passcode === 'plpl12345') {
+      // Log visit to Supabase anonymously
+      const ua = navigator.userAgent;
+      let os = "Unknown";
+      if (ua.indexOf("Win") !== -1) os = "Windows";
+      else if (ua.indexOf("Mac") !== -1) os = "MacOS";
+      else if (ua.indexOf("iPhone") !== -1 || ua.indexOf("iPad") !== -1) os = "iOS";
+      else if (ua.indexOf("Android") !== -1) os = "Android";
+
+      let deviceType = "Desktop";
+      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) {
+        deviceType = "Mobile";
+      }
+      
+      let browser = "Unknown";
+      if (ua.indexOf("Chrome") !== -1) browser = "Chrome";
+      else if (ua.indexOf("Safari") !== -1) browser = "Safari";
+      else if (ua.indexOf("Firefox") !== -1) browser = "Firefox";
+
+      try {
+        // Try inserting, ignore failure if table doesn't exist yet
+        await supabase.from('visit_logs').insert([{ device_type: deviceType, os, browser, user_agent: ua }]);
+      } catch (err) { console.warn("Log failed", err); }
+
       onLogin('user');
     } else if (passcode === 'admin999') {
       onLogin('admin');
@@ -47,6 +70,26 @@ const LoginGate = ({ onLogin }) => {
 };
 
 const AdminDashboard = ({ onLogout }) => {
+  const [logs, setLogs] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('visit_logs')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (data) setLogs(data);
+      } catch (err) {
+        console.error("Error fetching logs:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLogs();
+  }, []);
+
   return (
     <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto', height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', padding: '16px 0', borderBottom: '1px solid var(--border-color)' }}>
@@ -58,8 +101,37 @@ const AdminDashboard = ({ onLogout }) => {
           <LogOut size={16}/> Thoát
         </button>
       </div>
-      <div className="glass-panel" style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-        <p>Bảng thống kê truy cập sẽ hiển thị ở đây (Giai đoạn 2).</p>
+      <div className="glass-panel" style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        <h3 style={{ marginBottom: '16px', fontWeight: 600 }}>Tổng lượt truy cập: {logs.length}</h3>
+        {loading ? (
+          <p style={{ color: 'var(--text-muted)' }}>Đang tải dữ liệu...</p>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
+                <th style={{ padding: '8px' }}>Thời gian</th>
+                <th style={{ padding: '8px' }}>Hệ điều hành</th>
+                <th style={{ padding: '8px' }}>Trình duyệt</th>
+                <th style={{ padding: '8px' }}>Thiết bị</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log) => (
+                <tr key={log.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+                  <td style={{ padding: '10px 8px' }}>{new Date(log.created_at).toLocaleString('vi-VN')}</td>
+                  <td style={{ padding: '10px 8px' }}>{log.os}</td>
+                  <td style={{ padding: '10px 8px' }}>{log.browser}</td>
+                  <td style={{ padding: '10px 8px' }}>{log.device_type}</td>
+                </tr>
+              ))}
+              {logs.length === 0 && (
+                <tr>
+                  <td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>Chưa có lượt truy cập nào.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
