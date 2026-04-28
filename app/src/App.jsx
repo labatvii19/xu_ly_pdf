@@ -486,7 +486,7 @@ export default function App() {
       dragRef.current = null; // Always clear drag on up for marquee
       e.preventDefault();
       const m = marqueeRef.current;
-      if (m.w > 10 && m.h > 10) {
+      if (m.w > 1 || m.h > 1) {
         // Snap coords
         const finalRect = { x: m.x, y: m.y, w: m.w, h: m.h };
         setSelRect(finalRect);
@@ -657,7 +657,7 @@ export default function App() {
     const y1 = Math.min(srcCanvas.height, Math.ceil((selRect.y + selRect.h) * scaleFactorY));
     const w  = x1 - x0;
     const h  = y1 - y0;
-    if (w <= 0 || h <= 0) return;
+    if (w < 1 || h < 1) return;
 
     const pixelData = srcCanvas.getContext('2d').getImageData(x0, y0, w, h);
     const tmp = document.createElement('canvas');
@@ -930,12 +930,18 @@ export default function App() {
         )}
       </div>
 
-      {/* ZOOM STICK */}
       {pdfFile && (
         <div className="zoom-stick glass-panel">
-          <button className="zoom-btn" onClick={() => setZoom(z => Math.min(z + 0.5, 10))} title="Zoom In">+</button>
-          <div className="zoom-divider"/>
-          <button className="zoom-btn" onClick={() => setZoom(z => Math.max(z - 0.5, 0.5))} title="Zoom Out">-</button>
+          <ZoomOut size={14} style={{ color: '#666' }} />
+          <input 
+            type="range" 
+            className="zoom-slider"
+            min="0.5" max="8" step="0.1" 
+            value={zoom} 
+            onChange={(e) => setZoom(parseFloat(e.target.value))}
+          />
+          <ZoomIn size={14} style={{ color: '#666' }} />
+          <span className="zoom-label">{Math.round(zoom * 100)}%</span>
         </div>
       )}
 
@@ -1053,12 +1059,13 @@ export default function App() {
                 // Hiển thị khung bao quanh layer đang chọn để dễ nhận diện
                 let x = l.x, y = l.y, w = l.w, h = l.h;
                 if (l.type === 'text') {
+                  const fontSize = l.fontSize || 16;
                   x = l.x - 5;
-                  y = l.y - l.fontSize;
-                  w = (l.text.length * l.fontSize) * 0.6 + 10;
-                  h = l.fontSize + 10;
+                  y = l.y - fontSize;
+                  w = (l.text.length * fontSize) * 0.6 + 10;
+                  h = fontSize + 10;
                 }
-                return <rect x={x} y={y} width={w} height={h} fill="none" stroke="#007AFF" strokeWidth="2" strokeDasharray="5 2"/>;
+                return <rect x={x} y={y} width={w} height={h} fill="none" stroke="#007AFF" strokeWidth="2" strokeDasharray="6 3" filter="drop-shadow(0 0 2px white)"/>;
               })()}
             </svg>
 
