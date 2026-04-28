@@ -495,9 +495,9 @@ export default function App() {
         const r      = canvas.getBoundingClientRect();
         // Since we use CSS transform scale, 1 pixel in screen = 1/zoom units in base coordinates
         const invZoom = 1 / zoomRef.current;
-        // Cố định vị trí context menu và giới hạn để không bị tràn lề trái/phải
+        // Giới hạn để menu luôn nằm trong màn hình (ít nhất cách lề 140px để không mất chữ Copy)
         const menuX = r.left + (m.x + m.w / 2) * zoomRef.current;
-        const safeX = Math.max(100, Math.min(window.innerWidth - 100, menuX));
+        const safeX = Math.max(140, Math.min(window.innerWidth - 140, menuX));
         
         setContextMenu({
           x: safeX,
@@ -1132,7 +1132,7 @@ export default function App() {
             style={{ color: '#007AFF', fontWeight: 600 }} 
             onClick={executeMask}
           >
-            <Sparkles size={15}/> Vá thông minh
+            <Sparkles size={15}/> Vá
           </button>
           <button className="ctx-btn" onClick={() => {
             marqueeRef.current=null; setSelRect(null); setContextMenu(null); drawOverlay();
