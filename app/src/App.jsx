@@ -1195,7 +1195,7 @@ export default function App() {
       )}
 
       {/* BRUSH SETTINGS (SUB-TOOLBAR) */}
-      {pdfFile && (mode === 'pencil' || mode === 'eraser') && (
+      {pdfFile && mode === 'pencil' && (
         <div className="sub-pill glass-panel" style={{
           position: 'fixed', bottom: '86px', left: '50%', transform: 'translateX(-50%)',
           display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', zIndex: 1000
@@ -1244,12 +1244,14 @@ export default function App() {
           <button className={`toolbar-btn ${mode==='pencil' ? 'active' : ''}`} onClick={() => setMode('pencil')}>
             <Pencil size={20}/>
           </button>
+          {/* Eraser & Text tạm ẩn — uncomment để bật lại
           <button className={`toolbar-btn ${mode==='eraser' ? 'active' : ''}`} onClick={() => setMode('eraser')}>
             <Eraser size={20}/>
           </button>
           <button className={`toolbar-btn ${mode==='text' ? 'active' : ''}`} onClick={() => setMode('text')}>
             <Type size={20}/>
           </button>
+          */}
           <button className="toolbar-btn" onClick={() => { setClipBinOpen(false); setLayerPanelOpen(p => !p); }}>
             <Layers size={20}/>
           </button>
