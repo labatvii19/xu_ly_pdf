@@ -63,16 +63,22 @@ export default function HomePage() {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
-      padding: '32px 16px',
+      padding: '24px 16px',
       fontFamily: 'inherit',
     }}>
-      {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-        <div style={{ fontSize: '52px', marginBottom: '12px' }}>📄</div>
-        <h1 style={{ fontSize: '28px', fontWeight: 700, margin: 0, letterSpacing: '-0.5px' }}>PDF Toolkit</h1>
-        <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '15px' }}>Chọn công cụ bạn muốn sử dụng</p>
-      </div>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        margin: 'auto 0',
+        width: '100%'
+      }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '48px', marginTop: '24px' }}>
+          <div style={{ fontSize: '52px', marginBottom: '12px' }}>📄</div>
+          <h1 style={{ fontSize: '28px', fontWeight: 700, margin: 0, letterSpacing: '-0.5px' }}>PDF Toolkit</h1>
+          <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '15px' }}>Chọn công cụ bạn muốn sử dụng</p>
+        </div>
 
       {/* Cards */}
       <div style={{
@@ -118,6 +124,7 @@ export default function HomePage() {
             </div>
           </button>
         ))}
+      </div>
       </div>
     </div>
   );
