@@ -86,24 +86,28 @@ body {
 }
 .icon-btn:disabled { opacity: 0.3; }
 
-/* ---- ZOOM STICK (Right Edge) ---- */
+/* ---- ZOOM STICK ---- */
 .zoom-stick {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: 86px; /* Đẩy lên trên thanh công cụ chính */
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 16px;
-  z-index: 1000;
+  padding: 8px 16px;
+  z-index: 1001;
   border-radius: 99px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--border-color);
-  animation: slideLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+  white-space: nowrap;
 }
 
 .zoom-slider {
   -webkit-appearance: none;
-  width: 120px;
+  width: 100px; /* Thu nhỏ một chút để vừa mobile */
   height: 4px;
   background: rgba(0,0,0,0.1);
   border-radius: 2px;
@@ -138,18 +142,20 @@ body {
 /* ---- BOTTOM PILL TOOLBAR ---- */
 .bottom-pill {
   position: fixed;
-  bottom: max(32px, env(safe-area-inset-bottom));
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  justify-content: center;
   align-items: center;
-  padding: 4px; /* More compact */
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
   border-radius: 99px;
-  gap: 4px; /* Tighter gap for mobile */
-  z-index: 300;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  max-width: 95vw; /* Don't exceed screen width */
+  border: 1px solid var(--border-color);
+  z-index: 1000;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ── Auth Styles ────────────────────────────────────────────── */
