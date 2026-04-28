@@ -743,9 +743,10 @@ export default function App() {
 
     const maskLayer = { 
       id: Date.now(), 
-      type: 'mask', 
-      x: selRect.x, 
-      y: selRect.y, 
+      type: 'mask',
+      x: selRect.x,
+      y: selRect.y,
+      w: selRect.w,
       h: selRect.h,
       color: fillColor,
       locked: true 
