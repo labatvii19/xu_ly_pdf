@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ShieldAlert, LogOut } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
@@ -12,15 +12,23 @@ import PdfToWordPage from './pages/PdfToWordPage';
 import WordToPdfPage from './pages/WordToPdfPage';
 import './index.css';
 
-
 // ─── Login Gate ──────────────────────────────────────────────────────────────
 const LoginGate = ({ onLogin }) => {
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState(false);
+  const [loadingPass, setLoadingPass] = useState(true);
+  const userPasscode = useRef('plpl12345');
+
+  // Fetch passcode từ Supabase khi mở app
+  useEffect(() => {
+    supabase.from('settings').select('value').eq('key', 'user_passcode').single()
+      .then(({ data }) => { if (data?.value) userPasscode.current = data.value; })
+      .finally(() => setLoadingPass(false));
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (passcode === 'plpl12345') {
+    if (passcode === userPasscode.current) {
       const ua = navigator.userAgent;
       let os = 'Unknown';
       if (ua.indexOf('Win') !== -1) os = 'Windows';
@@ -54,12 +62,16 @@ const LoginGate = ({ onLogin }) => {
           type="password"
           value={passcode}
           onChange={(e) => setPasscode(e.target.value)}
-          placeholder="Nhập mã..."
+          placeholder={loadingPass ? 'Đang tải...' : 'Nhập mã...'}
+          disabled={loadingPass}
           autoFocus
           style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', background: 'rgba(255,255,255,0.5)', textAlign: 'center', fontSize: '16px', fontWeight: 600, letterSpacing: '2px' }}
         />
         {error && <span style={{ color: 'var(--red-text)', fontSize: '12px' }}>Mã không hợp lệ</span>}
-        <button type="submit" className="action-btn" style={{ width: '100%', justifyContent: 'center', marginTop: '8px', padding: '12px' }}>Xác nhận</button>
+        <button type="submit" disabled={loadingPass} className="action-btn"
+          style={{ width: '100%', justifyContent: 'center', marginTop: '8px', padding: '12px', opacity: loadingPass ? 0.5 : 1 }}>
+          {loadingPass ? 'Đang tải...' : 'Xác nhận'}
+        </button>
       </form>
     </div>
   );
@@ -67,18 +79,53 @@ const LoginGate = ({ onLogin }) => {
 
 // ─── Admin Dashboard ─────────────────────────────────────────────────────────
 const AdminDashboard = ({ onLogout }) => {
-  const [logs, setLogs] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
+  const [logs, setLogs]             = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [currentPass, setCurrentPass] = useState('');
+  const [newPass, setNewPass]         = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [passMsg, setPassMsg]         = useState({ text: '', ok: false });
+  const [savingPass, setSavingPass]   = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     supabase.from('visit_logs').select('*').order('created_at', { ascending: false })
       .then(({ data }) => { if (data) setLogs(data); })
       .finally(() => setLoading(false));
   }, []);
 
+  const handleChangePass = async (e) => {
+    e.preventDefault();
+    setPassMsg({ text: '', ok: false });
+    if (!newPass.trim()) { setPassMsg({ text: 'Mật khẩu mới không được để trống.', ok: false }); return; }
+    if (newPass !== confirmPass) { setPassMsg({ text: 'Mật khẩu mới và xác nhận không khớp.', ok: false }); return; }
+    if (newPass.length < 6) { setPassMsg({ text: 'Mật khẩu mới phải có ít nhất 6 ký tự.', ok: false }); return; }
+    if (newPass === 'admin999') { setPassMsg({ text: 'Không được dùng mật khẩu Admin làm mật khẩu User.', ok: false }); return; }
+
+    setSavingPass(true);
+    try {
+      // Verify current passcode
+      const { data } = await supabase.from('settings').select('value').eq('key', 'user_passcode').single();
+      if (!data || data.value !== currentPass) {
+        setPassMsg({ text: 'Mật khẩu hiện tại không đúng.', ok: false }); return;
+      }
+      // Update new passcode
+      const { error } = await supabase.from('settings').update({ value: newPass }).eq('key', 'user_passcode');
+      if (error) throw error;
+      setPassMsg({ text: '✅ Đổi mật khẩu thành công! Người dùng cần nhập mật khẩu mới khi đăng nhập lại.', ok: true });
+      setCurrentPass(''); setNewPass(''); setConfirmPass('');
+    } catch (err) {
+      setPassMsg({ text: 'Lỗi khi lưu: ' + err.message, ok: false });
+    } finally {
+      setSavingPass(false);
+    }
+  };
+
+  const inputStyle = { padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '14px', background: 'var(--bg-panel)', color: 'var(--text-color)', width: '100%' };
+
   return (
-    <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', padding: '16px 0', borderBottom: '1px solid var(--border-color)' }}>
+    <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid var(--border-color)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <ShieldAlert size={24} style={{ color: 'var(--primary-color)' }} />
           <h1 style={{ fontSize: '24px', fontWeight: 600 }}>Admin Dashboard</h1>
@@ -87,8 +134,39 @@ const AdminDashboard = ({ onLogout }) => {
           <LogOut size={16} /> Thoát
         </button>
       </div>
+
+      {/* ── Đổi mật khẩu User ── */}
+      <div className="glass-panel" style={{ padding: '24px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}>🔑 Đổi mật khẩu người dùng</h3>
+        <form onSubmit={handleChangePass} style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '400px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Mật khẩu hiện tại</label>
+            <input type="password" value={currentPass} onChange={e => setCurrentPass(e.target.value)}
+              placeholder="Nhập mật khẩu đang dùng..." style={inputStyle} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Mật khẩu mới</label>
+            <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)}
+              placeholder="Tối thiểu 6 ký tự..." style={inputStyle} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Xác nhận mật khẩu mới</label>
+            <input type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)}
+              placeholder="Nhập lại mật khẩu mới..." style={inputStyle} />
+          </div>
+          {passMsg.text && (
+            <p style={{ fontSize: '13px', margin: 0, color: passMsg.ok ? '#34C759' : 'var(--red-text)', lineHeight: 1.5 }}>{passMsg.text}</p>
+          )}
+          <button type="submit" disabled={savingPass} className="action-btn"
+            style={{ alignSelf: 'flex-start', opacity: savingPass ? 0.5 : 1 }}>
+            {savingPass ? 'Đang lưu...' : '💾 Lưu mật khẩu mới'}
+          </button>
+        </form>
+      </div>
+
+      {/* ── Lịch sử truy cập ── */}
       <div className="glass-panel" style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-        <h3 style={{ marginBottom: '16px', fontWeight: 600 }}>Tổng lượt truy cập: {logs.length}</h3>
+        <h3 style={{ marginBottom: '16px', fontWeight: 600 }}>📊 Tổng lượt truy cập: {logs.length}</h3>
         {loading ? <p style={{ color: 'var(--text-muted)' }}>Đang tải dữ liệu...</p> : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
             <thead>
@@ -121,7 +199,7 @@ const AdminDashboard = ({ onLogout }) => {
 
 // ─── Root App ────────────────────────────────────────────────────────────────
 export default function App() {
-  const [authStatus, setAuthStatus] = useState('locked'); // 'locked' | 'user' | 'admin'
+  const [authStatus, setAuthStatus] = useState('locked');
 
   if (authStatus === 'locked') return <LoginGate onLogin={setAuthStatus} />;
   if (authStatus === 'admin') return <AdminDashboard onLogout={() => setAuthStatus('locked')} />;
