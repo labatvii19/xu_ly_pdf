@@ -688,7 +688,7 @@ export default function App() {
         const newImg = { id: Date.now(), type: 'image', x: savedLX, y: savedLY, w: savedLW, h: savedLH, dataUrl: imgUrl };
 
         if (savedAction === 'cut') {
-          const maskLayer = { id: Date.now() + 1, type: 'mask', x: savedLX, y: savedLY, w: savedLW, h: savedLH, color: '#ffffff' };
+          const maskLayer = { id: Date.now() + 1, type: 'mask', x: savedLX, y: savedLY, w: savedLW, h: savedLH, color: '#ffffff', locked: true };
           layersRef.current = [...layersRef.current, maskLayer, newImg];
         } else {
           layersRef.current = [...layersRef.current, newImg];
@@ -746,9 +746,9 @@ export default function App() {
       type: 'mask', 
       x: selRect.x, 
       y: selRect.y, 
-      w: selRect.w, 
       h: selRect.h,
-      color: fillColor 
+      color: fillColor,
+      locked: true 
     };
 
     // Smart Text Color Auto-detection
