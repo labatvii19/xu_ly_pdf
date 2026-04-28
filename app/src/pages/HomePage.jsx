@@ -23,6 +23,27 @@ const modules = [
     path: '/merge',
     accent: '#FF9500',
   },
+  {
+    icon: '🖼️',
+    title: 'Ảnh → PDF',
+    desc: 'Chuyển một hoặc nhiều ảnh (JPG, PNG) thành file PDF.',
+    path: '/image-to-pdf',
+    accent: '#FF2D55',
+  },
+  {
+    icon: '📸',
+    title: 'PDF → Ảnh',
+    desc: 'Xuất từng trang PDF thành ảnh PNG hoặc JPEG (file ZIP).',
+    path: '/pdf-to-image',
+    accent: '#5AC8FA',
+  },
+  {
+    icon: '📝',
+    title: 'PDF → Word',
+    desc: 'Chuyển PDF thành file Word (.docx) — mỗi trang là 1 ảnh trong Word.',
+    path: '/pdf-to-word',
+    accent: '#5856D6',
+  },
 ];
 
 export default function HomePage() {
@@ -49,8 +70,8 @@ export default function HomePage() {
       {/* Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
-        gap: '20px',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '16px',
         width: '100%',
         maxWidth: '760px',
       }}>
@@ -62,7 +83,7 @@ export default function HomePage() {
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'flex-start',
-              padding: '28px 24px',
+              padding: '24px 20px',
               background: 'var(--bg-panel)',
               border: '1.5px solid var(--border-color)',
               borderRadius: '16px',
@@ -82,18 +103,10 @@ export default function HomePage() {
               e.currentTarget.style.borderColor = 'var(--border-color)';
             }}
           >
-            <span style={{ fontSize: '36px', marginBottom: '16px' }}>{mod.icon}</span>
-            <span style={{ fontSize: '17px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-color)' }}>{mod.title}</span>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5 }}>{mod.desc}</span>
-            <div style={{
-              marginTop: '20px',
-              fontSize: '13px',
-              fontWeight: 600,
-              color: mod.accent,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}>
+            <span style={{ fontSize: '32px', marginBottom: '12px' }}>{mod.icon}</span>
+            <span style={{ fontSize: '15px', fontWeight: 700, marginBottom: '6px', color: 'var(--text-color)' }}>{mod.title}</span>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>{mod.desc}</span>
+            <div style={{ marginTop: '16px', fontSize: '12px', fontWeight: 600, color: mod.accent }}>
               Mở →
             </div>
           </button>

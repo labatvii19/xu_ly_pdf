@@ -6,7 +6,11 @@ import HomePage from './pages/HomePage';
 import EditPage from './pages/EditPage';
 import SplitPage from './pages/SplitPage';
 import MergePage from './pages/MergePage';
+import ImageToPdfPage from './pages/ImageToPdfPage';
+import PdfToImagePage from './pages/PdfToImagePage';
+import PdfToWordPage from './pages/PdfToWordPage';
 import './index.css';
+
 
 // ─── Login Gate ──────────────────────────────────────────────────────────────
 const LoginGate = ({ onLogin }) => {
@@ -128,6 +132,9 @@ export default function App() {
         <Route path="/edit" element={<EditPage />} />
         <Route path="/split" element={<SplitPage />} />
         <Route path="/merge" element={<MergePage />} />
+        <Route path="/image-to-pdf" element={<ImageToPdfPage />} />
+        <Route path="/pdf-to-image" element={<PdfToImagePage />} />
+        <Route path="/pdf-to-word" element={<PdfToWordPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
