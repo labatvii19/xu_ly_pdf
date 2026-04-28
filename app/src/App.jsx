@@ -1241,10 +1241,10 @@ export default function App() {
           <button className={`toolbar-btn ${mode==='marquee' ? 'active' : ''}`} onClick={() => setMode('marquee')}>
             <Square size={20}/>
           </button>
+          {/* Pencil, Eraser & Text tạm ẩn — uncomment để bật lại
           <button className={`toolbar-btn ${mode==='pencil' ? 'active' : ''}`} onClick={() => setMode('pencil')}>
             <Pencil size={20}/>
           </button>
-          {/* Eraser & Text tạm ẩn — uncomment để bật lại
           <button className={`toolbar-btn ${mode==='eraser' ? 'active' : ''}`} onClick={() => setMode('eraser')}>
             <Eraser size={20}/>
           </button>
