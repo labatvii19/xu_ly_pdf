@@ -44,6 +44,13 @@ const modules = [
     path: '/pdf-to-word',
     accent: '#5856D6',
   },
+  {
+    icon: '📄',
+    title: 'Word → PDF',
+    desc: 'Chuyển file Word (.docx) thành file PDF để chia sẻ dễ dàng.',
+    path: '/word-to-pdf',
+    accent: '#30B0C7',
+  },
 ];
 
 export default function HomePage() {

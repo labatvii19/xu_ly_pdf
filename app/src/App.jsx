@@ -9,6 +9,7 @@ import MergePage from './pages/MergePage';
 import ImageToPdfPage from './pages/ImageToPdfPage';
 import PdfToImagePage from './pages/PdfToImagePage';
 import PdfToWordPage from './pages/PdfToWordPage';
+import WordToPdfPage from './pages/WordToPdfPage';
 import './index.css';
 
 
@@ -135,6 +136,7 @@ export default function App() {
         <Route path="/image-to-pdf" element={<ImageToPdfPage />} />
         <Route path="/pdf-to-image" element={<PdfToImagePage />} />
         <Route path="/pdf-to-word" element={<PdfToWordPage />} />
+        <Route path="/word-to-pdf" element={<WordToPdfPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
