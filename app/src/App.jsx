@@ -9,6 +9,63 @@ import {
 import './index.css';
 import { supabase } from './services/supabaseClient';
 
+const LoginGate = ({ onLogin }) => {
+  const [passcode, setPasscode] = useState('');
+  const [error, setError] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (passcode === 'plpl12345') {
+      onLogin('user');
+    } else if (passcode === 'admin999') {
+      onLogin('admin');
+    } else {
+      setError(true);
+      setTimeout(() => setError(false), 500);
+    }
+  };
+
+  return (
+    <div style={{ width: '100vw', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'var(--bg-color)' }}>
+      <form onSubmit={handleSubmit} className={`glass-panel ${error ? 'shake' : ''}`} style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', width: '300px' }}>
+        <div style={{ fontSize: '40px', marginBottom: '8px' }}>🔒</div>
+        <h2 style={{ fontSize: '20px', fontWeight: 600 }}>PDF Patcher</h2>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center' }}>Vui lòng nhập mã truy cập để tiếp tục</p>
+        <input 
+          type="password" 
+          value={passcode}
+          onChange={(e) => setPasscode(e.target.value)}
+          placeholder="Nhập mã..."
+          autoFocus
+          style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', background: 'rgba(255,255,255,0.5)', textAlign: 'center', fontSize: '16px', fontWeight: 600, letterSpacing: '2px' }}
+        />
+        {error && <span style={{ color: 'var(--red-text)', fontSize: '12px' }}>Mã không hợp lệ</span>}
+        <button type="submit" className="action-btn" style={{ width: '100%', justifyContent: 'center', marginTop: '8px', padding: '12px' }}>Xác nhận</button>
+      </form>
+    </div>
+  );
+};
+
+const AdminDashboard = ({ onLogout }) => {
+  return (
+    <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', padding: '16px 0', borderBottom: '1px solid var(--border-color)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <ShieldAlert size={24} style={{ color: 'var(--primary-color)' }}/>
+          <h1 style={{ fontSize: '24px', fontWeight: 600 }}>Admin Dashboard</h1>
+        </div>
+        <button className="action-btn" onClick={onLogout} style={{ background: 'var(--bg-panel)' }}>
+          <LogOut size={16}/> Thoát
+        </button>
+      </div>
+      <div className="glass-panel" style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+        <p>Bảng thống kê truy cập sẽ hiển thị ở đây (Giai đoạn 2).</p>
+      </div>
+    </div>
+  );
+};
+
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function getClientXY(e) {
   if (e.touches?.length)        return { x: e.touches[0].clientX,        y: e.touches[0].clientY };
@@ -68,9 +125,7 @@ export default function App() {
   const [brushColor,    setBrushColor]    = useState('#000000');
   
   // Auth State
-  const [session,       setSession]       = useState(null);
-  const [isWhitelisted, setIsWhitelisted] = useState(false);
-  const [authLoading,   setAuthLoading]   = useState(true);
+  const [authStatus, setAuthStatus] = useState('locked'); // 'locked', 'user', 'admin'
 
   const zoomRef         = useRef(1.0);
 
@@ -108,57 +163,7 @@ export default function App() {
     return () => window.removeEventListener('pointerup', handleGlobalUp);
   }, []);
 
-  // ── Auth & Whitelist Logic ──
-  useEffect(() => {
-    // 1. Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) checkWhitelist(session.user.email);
-      else setAuthLoading(false);
-    });
-
-    // 2. Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) checkWhitelist(session.user.email);
-      else {
-        setIsWhitelisted(false);
-        setAuthLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const checkWhitelist = async (email) => {
-    try {
-      setAuthLoading(true);
-      const { data, error } = await supabase
-        .from('whitelist')
-        .select('email')
-        .eq('email', email)
-        .single();
-      
-      if (data) setIsWhitelisted(true);
-      else setIsWhitelisted(false);
-    } catch (err) {
-      console.error("Whitelist check failed:", err);
-      setIsWhitelisted(false);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin }
-    });
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
+  // (Google Auth block removed in favor of simple passcode gate)
 
   // ── Redraw overlay canvas (marquee box) ──
   const drawOverlay = useCallback(() => {
@@ -910,6 +915,14 @@ export default function App() {
   const imageLayers = layersRef.current.filter(l => l.type === 'image');
 
   // ── Render ──────────────────────────────────────────────────────────────────
+  if (authStatus === 'locked') {
+    return <LoginGate onLogin={setAuthStatus} />;
+  }
+
+  if (authStatus === 'admin') {
+    return <AdminDashboard onLogout={() => setAuthStatus('locked')} />;
+  }
+
   return (
     <div style={{ width:'100vw', height:'100vh', overflow:'hidden', background:'var(--bg-color)', position:'relative' }}>
 
