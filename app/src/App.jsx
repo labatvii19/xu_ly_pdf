@@ -678,22 +678,24 @@ export default function App() {
     setSelectedId(null);
     setMode('pan');
 
-    tmp.toBlob((blob) => {
-      if (!blob) return;
-      const imgUrl = URL.createObjectURL(blob);
-      const newImg = { id: Date.now(), type: 'image', x: savedLX, y: savedLY, w: savedLW, h: savedLH, dataUrl: imgUrl };
+      tmp.toBlob((blob) => {
+        if (!blob) return;
+        const imgUrl = URL.createObjectURL(blob);
+        const newImg = { id: Date.now(), type: 'image', x: savedLX, y: savedLY, w: savedLW, h: savedLH, dataUrl: imgUrl };
 
-      if (savedAction === 'cut') {
-        const maskLayer = { id: Date.now() + 1, type: 'mask', x: savedLX, y: savedLY, w: savedLW, h: savedLH, color: '#ffffff' };
-        layersRef.current = [...layersRef.current, maskLayer, newImg];
-      } else {
-        layersRef.current = [...layersRef.current, newImg];
-      }
-      const clipboardItem = { id: Date.now() + 2, w: savedLW, h: savedLH, dataUrl: imgUrl };
-      setClipBin(prev => [...prev, clipboardItem]);
-      saveHistory();
-      setRenderId(v => v + 1);
-    }, 'image/png');
+        if (savedAction === 'cut') {
+          const maskLayer = { id: Date.now() + 1, type: 'mask', x: savedLX, y: savedLY, w: savedLW, h: savedLH, color: '#ffffff' };
+          layersRef.current = [...layersRef.current, maskLayer, newImg];
+        } else {
+          layersRef.current = [...layersRef.current, newImg];
+        }
+        
+        setSelectedId(newImg.id); // Tự động chọn layer vừa tạo để hiện viền
+        const clipboardItem = { id: Date.now() + 2, w: savedLW, h: savedLH, dataUrl: imgUrl };
+        setClipBin(prev => [...prev, clipboardItem]);
+        saveHistory();
+        setRenderId(v => v + 1);
+      }, 'image/png');
   };
 
   const executeMask = () => {
